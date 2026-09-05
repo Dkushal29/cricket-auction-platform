@@ -1,0 +1,268 @@
+"use client";
+
+import React, { useEffect, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { ClientAuction, ClientBid, ClientItem } from "@/lib/types";
+import { SocketProvider, useAuctionSocket } from "@/components/SocketContext";
+import { useAuth } from "@/components/AuthContext";
+import { useToast } from "@/components/ToastNotifications";
+import { AuctionHeader } from "@/components/AuctionHeader";
+import { ItemSpotlight } from "@/components/ItemSpotlight";
+import { TeamRail } from "@/components/TeamRail";
+import { BidTicker } from "@/components/BidTicker";
+import { InviteModal } from "@/components/InviteModal";
+import { calculateAuctionMomentum } from "@/lib/momentum";
+import { soundEngine } from "@/lib/sound-effects";
+import { Eye, Flame, QrCode, Radio, Share2, Sparkles, Loader2, Volume2, VolumeX } from "lucide-react";
+
+export default function SpectatorWatchPage() {
+  const params = useParams();
+  const router = useRouter();
+  const auctionId = params.id as string;
+  const { user } = useAuth();
+  const { addToast } = useToast();
+
+  const [auction, setAuction] = useState<ClientAuction | null>(null);
+  const [bids, setBids] = useState<ClientBid[]>([]);
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
+  // Guest Spectator Name
+  const [spectatorName, setSpectatorName] = useState<string>("");
+  const [hasEnteredName, setHasEnteredName] = useState<boolean>(false);
+
+  useEffect(() => {
+    const savedName = localStorage.getItem("spectator_display_name");
+    if (savedName || user?.name) {
+      setSpectatorName(savedName || user?.name || "Spectator");
+      setHasEnteredName(true);
+    }
+  }, [user]);
+
+  const fetchState = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/auctions/${auctionId}`);
+      if (!res.ok) throw new Error("Failed to load auction");
+      const data = await res.json();
+      setAuction(data.auction);
+
+      if (data.auction?.activeItemId) {
+        const bidsRes = await fetch(`/api/auctions/${auctionId}/bids?itemId=${data.auction.activeItemId}`);
+        if (bidsRes.ok) {
+          const bidsData = await bidsRes.json();
+          setBids(bidsData.bids || []);
+        }
+      } else {
+        setBids([]);
+        setSecondsRemaining(null);
+      }
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [auctionId]);
+
+  useEffect(() => {
+    fetchState();
+  }, [fetchState]);
+
+  const handleSocketEvent = useCallback(
+    (eventName: string, data: any) => {
+      switch (eventName) {
+        case "auction_started":
+        case "auction_paused":
+        case "auction_resumed":
+        case "auction_completed":
+          setAuction((prev) => (prev ? { ...prev, status: data.status } : null));
+          break;
+        case "player_started":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) =>
+              i.id === data.item.id ? { ...i, status: "ACTIVE" as any } : i
+            );
+            return { ...prev, activeItemId: data.item.id, items: updatedItems };
+          });
+          setBids([]);
+          setSecondsRemaining(auction?.timerDuration || 30);
+          addToast(`Lot #${data.item.orderIndex} ${data.item.name} now on spotlight`, "brass");
+          break;
+        case "bid_placed":
+          setBids((prev) => [data.bid, ...prev]);
+          soundEngine.playNewBid();
+          break;
+        case "timer_updated":
+          setSecondsRemaining(data.secondsRemaining);
+          if (data.secondsRemaining <= 5 && data.secondsRemaining > 0) {
+            soundEngine.playTimerWarning();
+          }
+          break;
+        case "player_sold":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) => (i.id === data.item.id ? data.item : i));
+            const updatedParticipants = prev.participants.map((p) =>
+              p.id === data.updatedParticipant.id ? data.updatedParticipant : p
+            );
+            return { ...prev, activeItemId: null, items: updatedItems, participants: updatedParticipants };
+          });
+          setSecondsRemaining(null);
+          soundEngine.playSoldFanfare();
+          addToast(`Sold to ${data.updatedParticipant.teamName}`, "success");
+          break;
+        case "player_unsold":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) => (i.id === data.item.id ? { ...i, status: "UNSOLD" as any } : i));
+            return { ...prev, activeItemId: null, items: updatedItems };
+          });
+          setSecondsRemaining(null);
+          soundEngine.playUnsoldGavel();
+          break;
+        case "participant_updated":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedParticipants = prev.participants.map((p) =>
+              p.id === data.participant.id ? data.participant : p
+            );
+            return { ...prev, participants: updatedParticipants };
+          });
+          break;
+        default:
+          break;
+      }
+    },
+    [auction?.timerDuration, addToast]
+  );
+
+  const handleSaveSpectatorName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!spectatorName.trim()) return;
+    localStorage.setItem("spectator_display_name", spectatorName);
+    setHasEnteredName(true);
+  };
+
+  if (loading || !auction) {
+    return (
+      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      </div>
+    );
+  }
+
+  const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || null;
+  const highestBid = bids[0];
+  const teamA = auction.participants[0] || null;
+  const teamB = auction.participants[1] || null;
+  const momentum = calculateAuctionMomentum(bids);
+
+  return (
+    <SocketProvider auctionId={auctionId} onEvent={handleSocketEvent}>
+      <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
+        {/* Top Broadcast Bar */}
+        <div className="h-10 px-4 sm:px-6 bg-[#161D24] border-b border-[#2B343C] flex items-center justify-between text-[13px]">
+          <div className="flex items-center gap-3">
+            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <span className="font-bold text-[#EDEAE1]">Live spectator broadcast</span>
+            <span className="text-[#8B939A] hidden sm:inline">• Room: {auction.roomCode}</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Momentum Indicator */}
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[12px]">
+              <Flame className={`w-3.5 h-3.5 ${momentum.level === "HIGH" ? "text-amber-400" : "text-[#8B939A]"}`} />
+              <span className="text-[#8B939A]">Momentum:</span>
+              <strong className="text-[#EDEAE1]">{momentum.level}</strong>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowInviteModal(true)}
+              className="px-2.5 py-0.5 rounded-[2px] bg-[#1B2229] border border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] text-[12px] flex items-center gap-1.5"
+            >
+              <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
+              <span>Share QR</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Thin Header */}
+        <AuctionHeader auction={auction} />
+
+        {/* Guest Name Modal if spectator hasn't set display name */}
+        {!hasEnteredName && (
+          <div className="fixed inset-0 z-50 bg-[#10151A]/90 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] max-w-sm w-full space-y-4">
+              <div>
+                <h2 className="text-[17px] font-bold text-[#EDEAE1]">Join as spectator</h2>
+                <p className="text-[13px] text-[#8B939A]">Enter your name to watch the live auction</p>
+              </div>
+
+              <form onSubmit={handleSaveSpectatorName} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Your Name (e.g. Rahul)"
+                  value={spectatorName}
+                  onChange={(e) => setSpectatorName(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[14px]"
+                />
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white"
+                >
+                  Enter broadcast
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Main Stage (Stadium Layout) */}
+        <main className="max-w-7xl w-full mx-auto p-3 sm:p-5 flex-1 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Team A Rail (3 cols) */}
+            <div className="hidden lg:block lg:col-span-3 h-full">
+              <TeamRail participant={teamA} items={auction.items} variant="team-a" />
+            </div>
+
+            {/* Dominant Spotlight (6 cols) */}
+            <div className="lg:col-span-6 space-y-4">
+              <ItemSpotlight
+                item={activeItem}
+                currentHighestBid={highestBid?.amount || 0}
+                highestBidderName={highestBid?.bidder?.name}
+                highestBidderTeam={highestBid?.bidder?.participant?.teamName}
+                secondsRemaining={secondsRemaining}
+                timerDuration={auction.timerDuration}
+                antiSnipeThreshold={auction.antiSnipeThreshold}
+                isPaused={auction.status === "PAUSED"}
+              />
+            </div>
+
+            {/* Team B Rail (3 cols) */}
+            <div className="hidden lg:block lg:col-span-3 h-full">
+              <TeamRail participant={teamB} items={auction.items} variant="team-b" />
+            </div>
+
+            {/* Mobile Rail stack */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:hidden">
+              <TeamRail participant={teamA} items={auction.items} variant="team-a" />
+              <TeamRail participant={teamB} items={auction.items} variant="team-b" />
+            </div>
+          </div>
+        </main>
+
+        <BidTicker bids={bids} />
+
+        <InviteModal
+          auction={auction}
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+        />
+      </div>
+    </SocketProvider>
+  );
+}

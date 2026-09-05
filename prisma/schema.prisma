@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String               @id @default(uuid())
+  name         String
+  email        String               @unique
+  passwordHash String
+  role         String               // AUCTIONEER, BIDDER, SPECTATOR
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  auctions     Auction[]            @relation("Auctioneer")
+  participants AuctionParticipant[]
+  bids         Bid[]
+  wonItems     Item[]               @relation("ItemWinner")
+  transactions Transaction[]        @relation("TransactionWinner")
+  auditLogs    AuditLog[]
+}
+
+model Auction {
+  id                  String               @id @default(uuid())
+  roomCode            String               @unique @default(uuid())
+  bidderInviteA       String?              @unique
+  bidderInviteB       String?              @unique
+  spectatorInvite     String?              @unique
+  isConfigLocked      Boolean              @default(false)
+  name                String
+  description         String?
+  sport               String               @default("Cricket")
+  season              String               @default("2026")
+  bannerUrl           String?
+  status              String               @default("DRAFT") // DRAFT, READY, LIVE, PAUSED, COMPLETED, CANCELLED
+  auctioneerId        String
+  minimumBidIncrement Int                  @default(500000) // In INR
+  timerDuration       Int                  @default(30)     // In seconds
+  antiSnipeThreshold  Int                  @default(5)      // If bid in last 5s
+  antiSnipeExtension  Int                  @default(10)     // Extend by 10s
+  minSquadSize        Int                  @default(11)
+  maxSquadSize        Int                  @default(25)
+  squadRequirements   String?              // JSON: {"batsmen": 5, "bowlers": 5, "allRounders": 3, "wicketkeepers": 2}
+  activeItemId        String?
+  currentTimerExpiry  DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  auctioneer          User                 @relation("Auctioneer", fields: [auctioneerId], references: [id])
+  participants        AuctionParticipant[]
+  items               Item[]
+  bids                Bid[]
+  transactions        Transaction[]
+  auditLogs           AuditLog[]
+}
+
+model AuctionParticipant {
+  id              String   @id @default(uuid())
+  auctionId       String
+  userId          String
+  teamName        String
+  teamLogoUrl     String?
+  teamColor       String?  // Hex color e.g. #3E7CB1
+  initialBudget   Int      // Initial purse e.g. 100000000 (10 Cr)
+  remainingBudget Int      // Invariant: initialBudget - totalSpent
+  totalSpent      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  auction         Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([auctionId, userId])
+}
+
+model Item {
+  id           String        @id @default(uuid())
+  auctionId    String
+  name         String
+  imageUrl     String?
+  description  String?
+  category     String        // Batsman, Bowler, All-Rounder, Wicket-Keeper
+  basePrice    Int           // In INR
+  status       String        @default("PENDING") // PENDING, ACTIVE, SOLD, UNSOLD
+  orderIndex   Int           @default(0)
+  rating       Float?
+  age          Int?
+  matches      Int?
+  runs         Int?
+  wickets      Int?
+  strikeRate   Float?
+  economy      Float?
+  customStats  String?       // JSON string
+  winnerId     String?
+  winningPrice Int?
+  soldAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  auction      Auction       @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  winner       User?         @relation("ItemWinner", fields: [winnerId], references: [id])
+  bids         Bid[]
+  transaction  Transaction?
+}
+
+model Bid {
+  id             String   @id @default(uuid())
+  auctionId      String
+  itemId         String
+  bidderId       String
+  amount         Int
+  sequenceNumber Int      @default(1)
+  requestId      String?
+  timestamp      DateTime @default(now())
+
+  auction        Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  item           Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  bidder         User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId, itemId, amount])
+  @@index([auctionId, timestamp])
+  @@index([auctionId, requestId])
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  auctionId  String
+  itemId     String   @unique
+  winnerId   String
+  winningBid Int
+  status     String   @default("COMPLETED") // COMPLETED, REVERSED
+  timestamp  DateTime @default(now())
+
+  auction    Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  winner     User     @relation("TransactionWinner", fields: [winnerId], references: [id], onDelete: Cascade)
+
+  @@index([auctionId, winnerId])
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  auctionId      String
+  userId         String?
+  action         String
+  sequenceNumber Int      @default(1)
+  metadata       String?  // JSON serialized metadata
+  timestamp      DateTime @default(now())
+
+  auction        Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [userId], references: [id])
+
+  @@index([auctionId, timestamp])
+}
