@@ -28,12 +28,30 @@ export async function POST(
       );
     }
 
+    // Verify target user exists in database
+    let targetUser = await prisma.user.findUnique({
+      where: { id: data.userId },
+    });
+
+    if (!targetUser && data.userId.includes("@")) {
+      targetUser = await prisma.user.findUnique({
+        where: { email: data.userId.toLowerCase() },
+      });
+    }
+
+    if (!targetUser) {
+      return NextResponse.json(
+        { error: `User with ID '${data.userId}' does not exist in the database.` },
+        { status: 400 }
+      );
+    }
+
     // Upsert participant
     const participant = await prisma.auctionParticipant.upsert({
       where: {
         auctionId_userId: {
           auctionId,
-          userId: data.userId,
+          userId: targetUser.id,
         },
       },
       update: {
@@ -45,7 +63,7 @@ export async function POST(
       },
       create: {
         auctionId,
-        userId: data.userId,
+        userId: targetUser.id,
         teamName: data.teamName,
         teamLogoUrl: data.teamLogoUrl || null,
         initialBudget: data.initialBudget,

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { ClientAuction, ClientBid, ClientItem } from "@/lib/types";
 import { formatExactINR, formatINR } from "@/lib/auction-state";
 import { useToast } from "./ToastNotifications";
+import { useAuth } from "./AuthContext";
 import { Play, Pause, Gavel, XCircle, RotateCcw, FastForward, Square, AlertTriangle, Plus } from "lucide-react";
 
 interface AuctionControlPanelProps {
@@ -17,6 +18,7 @@ export function AuctionControlPanel({
   bids = [],
   onRefresh,
 }: AuctionControlPanelProps) {
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
@@ -70,7 +72,10 @@ export function AuctionControlPanel({
     try {
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await res.json();

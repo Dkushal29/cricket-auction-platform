@@ -22,7 +22,7 @@ export function BidPanel({
   highestBidderId,
   participant,
 }: BidPanelProps) {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [customAmount, setCustomAmount] = useState<string>("");
@@ -74,7 +74,10 @@ export function BidPanel({
     try {
       const res = await fetch(`/api/items/${item.id}/bids`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ amount: amountToBid }),
       });
 

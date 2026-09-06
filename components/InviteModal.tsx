@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { ClientAuction } from "@/lib/types";
 import { useToast } from "./ToastNotifications";
+import { useAuth } from "./AuthContext";
 import { Copy, Check, QrCode, X, Share2, Users, Shield, Eye } from "lucide-react";
 
 interface InviteModalProps {
@@ -13,6 +14,7 @@ interface InviteModalProps {
 }
 
 export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"links" | "qr">("links");
@@ -50,7 +52,10 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
       setRevoking(tokenType);
       const res = await fetch(`/api/auctions/${auction.id}/invites`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ tokenType }),
       });
       if (!res.ok) throw new Error("Failed to revoke token");

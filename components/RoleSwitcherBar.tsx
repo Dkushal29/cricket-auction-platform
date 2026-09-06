@@ -4,8 +4,13 @@ import React from "react";
 import { useAuth } from "./AuthContext";
 import { Shield, UserCheck, Users, Eye } from "lucide-react";
 
-export function RoleSwitcherBar() {
+export function RoleSwitcherBar({ isLandingPage = false }: { isLandingPage?: boolean }) {
   const { user, switchUserRole, logout } = useAuth();
+
+  // Hide on public landing page or in production unless debugging
+  if (isLandingPage || (process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_ENABLE_DEMO_SWITCHER !== "true")) {
+    return null;
+  }
 
   const accounts = [
     {

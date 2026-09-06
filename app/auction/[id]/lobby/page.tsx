@@ -14,7 +14,7 @@ import { ArrowLeft, Play, QrCode, Share2, Users, Shield, CheckCircle2, Circle, R
 
 function LobbyContent({ auction }: { auction: ClientAuction }) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const { connected, spectatorCount } = useAuctionSocket();
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -28,7 +28,13 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
   const handleStartAuction = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/auctions/${auction.id}/start`, { method: "POST" });
+      const res = await fetch(`/api/auctions/${auction.id}/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       const data = await res.json();
       if (!res.ok) {
         addToast(data.error || "Failed to start auction", "error");

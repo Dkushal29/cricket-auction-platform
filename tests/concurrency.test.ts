@@ -268,6 +268,7 @@ async function runConcurrencyAndIntegrityTests() {
     process.exit(1);
   } finally {
     await prisma.$disconnect();
+    process.exit(failedTests > 0 ? 1 : 0);
   }
 }
 

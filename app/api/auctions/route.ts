@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, hashPassword } from "@/lib/auth";
 import { generateRoomCode, generateSecureToken } from "@/lib/invite-crypto";
 import { z } from "zod";
 
@@ -16,6 +16,30 @@ const createAuctionSchema = z.object({
   minSquadSize: z.number().int().default(11),
   maxSquadSize: z.number().int().default(25),
   squadRequirements: z.string().optional(),
+  teams: z
+    .array(
+      z.object({
+        teamName: z.string().min(2),
+        teamLogoUrl: z.string().optional().or(z.literal("")),
+        teamColor: z.string().optional(),
+        initialBudget: z.number().int().positive(),
+        userId: z.string().optional(),
+        userEmail: z.string().optional(),
+      })
+    )
+    .optional(),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(2),
+        category: z.string().min(1),
+        basePrice: z.number().int().positive(),
+        description: z.string().optional(),
+        imageUrl: z.string().optional().or(z.literal("")),
+        orderIndex: z.number().int().optional(),
+      })
+    )
+    .optional(),
 });
 
 export async function GET() {
@@ -47,53 +71,159 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const user = requireAuth(req, ["AUCTIONEER"]);
+    const authUser = requireAuth(req, ["AUCTIONEER"]);
     const body = await req.json();
     const data = createAuctionSchema.parse(body);
+
+    // 1. Ensure authenticated auctioneer exists in the database
+    let dbAuctioneer = await prisma.user.findUnique({
+      where: { id: authUser.userId },
+    });
+
+    if (!dbAuctioneer && authUser.email) {
+      dbAuctioneer = await prisma.user.findUnique({
+        where: { email: authUser.email.toLowerCase() },
+      });
+    }
+
+    if (!dbAuctioneer) {
+      return NextResponse.json(
+        { error: "UNAUTHORIZED: Authenticated auctioneer user record was not found in database. Please sign in again." },
+        { status: 401 }
+      );
+    }
 
     const roomCode = generateRoomCode();
     const bidderInviteA = generateSecureToken(16);
     const bidderInviteB = generateSecureToken(16);
     const spectatorInvite = generateSecureToken(16);
 
-    const auction = await prisma.auction.create({
-      data: {
-        roomCode,
-        bidderInviteA,
-        bidderInviteB,
-        spectatorInvite,
-        isConfigLocked: false,
-        name: data.name,
-        description: data.description,
-        sport: data.sport,
-        season: data.season,
-        minimumBidIncrement: data.minimumBidIncrement,
-        timerDuration: data.timerDuration,
-        antiSnipeThreshold: data.antiSnipeThreshold,
-        antiSnipeExtension: data.antiSnipeExtension,
-        minSquadSize: data.minSquadSize,
-        maxSquadSize: data.maxSquadSize,
-        squadRequirements: data.squadRequirements,
-        auctioneerId: user.userId,
-        status: "DRAFT",
+    // Execute atomic creation transaction
+    const createdAuction = await prisma.$transaction(async (tx) => {
+      // 2. Create the Auction record with verified auctioneerId
+      const auction = await tx.auction.create({
+        data: {
+          roomCode,
+          bidderInviteA,
+          bidderInviteB,
+          spectatorInvite,
+          isConfigLocked: false,
+          name: data.name,
+          description: data.description,
+          sport: data.sport,
+          season: data.season,
+          minimumBidIncrement: data.minimumBidIncrement,
+          timerDuration: data.timerDuration,
+          antiSnipeThreshold: data.antiSnipeThreshold,
+          antiSnipeExtension: data.antiSnipeExtension,
+          minSquadSize: data.minSquadSize,
+          maxSquadSize: data.maxSquadSize,
+          squadRequirements: data.squadRequirements,
+          auctioneerId: dbAuctioneer.id,
+          status: "DRAFT",
+        },
+      });
+
+      // 3. Create initial participants if provided in payload
+      if (data.teams && data.teams.length > 0) {
+        for (let i = 0; i < data.teams.length; i++) {
+          const team = data.teams[i];
+          let teamUser: any = null;
+
+          if (team.userId) {
+            teamUser = await tx.user.findUnique({ where: { id: team.userId } });
+          }
+          if (!teamUser && team.userEmail) {
+            teamUser = await tx.user.findUnique({ where: { email: team.userEmail.toLowerCase() } });
+          }
+
+          // If no specific user found, find or create default bidder accounts
+          if (!teamUser) {
+            const fallbackEmail = i === 0 ? "bidder1@rcb.com" : i === 1 ? "bidder2@csk.com" : `bidder${i + 1}@league.com`;
+            teamUser = await tx.user.findUnique({ where: { email: fallbackEmail } });
+
+            if (!teamUser) {
+              const defaultPasswordHash = await hashPassword("Password123!");
+              teamUser = await tx.user.create({
+                data: {
+                  name: team.teamName,
+                  email: fallbackEmail,
+                  passwordHash: defaultPasswordHash,
+                  role: "BIDDER",
+                },
+              });
+            }
+          }
+
+          await tx.auctionParticipant.create({
+            data: {
+              auctionId: auction.id,
+              userId: teamUser.id,
+              teamName: team.teamName,
+              teamLogoUrl: team.teamLogoUrl || null,
+              teamColor: team.teamColor || (i === 0 ? "#3E7CB1" : "#B85C38"),
+              initialBudget: team.initialBudget,
+              remainingBudget: team.initialBudget,
+              totalSpent: 0,
+            },
+          });
+        }
+      }
+
+      // 4. Create initial player items if provided in payload
+      if (data.items && data.items.length > 0) {
+        for (let i = 0; i < data.items.length; i++) {
+          const item = data.items[i];
+          await tx.item.create({
+            data: {
+              auctionId: auction.id,
+              name: item.name,
+              category: item.category,
+              basePrice: item.basePrice,
+              description: item.description || null,
+              imageUrl: item.imageUrl || null,
+              orderIndex: item.orderIndex || i + 1,
+              status: "PENDING",
+            },
+          });
+        }
+      }
+
+      // 5. Record Audit Log
+      await tx.auditLog.create({
+        data: {
+          auctionId: auction.id,
+          userId: dbAuctioneer.id,
+          action: "AUCTION_CREATED",
+          metadata: JSON.stringify({ name: auction.name, roomCode: auction.roomCode }),
+        },
+      });
+
+      return auction;
+    });
+
+    // Return the created auction with relations
+    const fullAuction = await prisma.auction.findUnique({
+      where: { id: createdAuction.id },
+      include: {
+        auctioneer: { select: { id: true, name: true, email: true } },
+        participants: { include: { user: { select: { id: true, name: true, email: true } } } },
+        items: { orderBy: { orderIndex: "asc" } },
       },
     });
 
-    await prisma.auditLog.create({
-      data: {
-        auctionId: auction.id,
-        userId: user.userId,
-        action: "AUCTION_CREATED",
-        metadata: JSON.stringify({ name: auction.name, roomCode: auction.roomCode }),
-      },
-    });
-
-    return NextResponse.json({ auction }, { status: 201 });
+    return NextResponse.json({ auction: fullAuction || createdAuction }, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
-    const status = error.message.startsWith("UNAUTHORIZED") ? 401 : error.message.startsWith("FORBIDDEN") ? 403 : 500;
+    const status = error.message.startsWith("UNAUTHORIZED")
+      ? 401
+      : error.message.startsWith("FORBIDDEN")
+      ? 403
+      : error.message.includes("Foreign key")
+      ? 400
+      : 500;
     return NextResponse.json({ error: error.message }, { status });
   }
 }

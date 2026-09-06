@@ -11,7 +11,7 @@ import { ArrowLeft, Check, ChevronRight, Gavel, Plus, Trash2, Trophy, Users, Shi
 
 export default function CreateAuctionPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -144,19 +144,47 @@ export default function CreateAuctionPage() {
   const handleCreateAuction = async () => {
     setLoading(true);
     try {
-      // 1. Create Auction
-      const roomCode = `AUCTION-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
       const res = await fetch("/api/auctions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           name,
           description,
+          sport,
+          season,
           minimumBidIncrement,
           timerDuration,
           antiSnipeThreshold,
           antiSnipeExtension,
+          minSquadSize,
+          maxSquadSize,
+          teams: [
+            {
+              teamName: teamAName,
+              teamLogoUrl: teamALogo,
+              teamColor: "#3E7CB1",
+              initialBudget,
+              userEmail: "bidder1@rcb.com",
+            },
+            {
+              teamName: teamBName,
+              teamLogoUrl: teamBLogo,
+              teamColor: "#B85C38",
+              initialBudget,
+              userEmail: "bidder2@csk.com",
+            },
+          ],
+          items: players.map((p, idx) => ({
+            name: p.name,
+            category: p.category,
+            basePrice: p.basePrice,
+            description: p.description,
+            imageUrl: p.imageUrl,
+            orderIndex: idx + 1,
+          })),
         }),
       });
 
@@ -165,69 +193,8 @@ export default function CreateAuctionPage() {
         throw new Error(data.error || "Failed to create auction");
       }
 
-      const auctionId = data.auction.id;
-
-      // 2. Add Participants (Team A and Team B)
-      // We will register team participants for demo bidder1 and bidder2 users
-      const bidder1Res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "bidder1@rcb.com", password: "Password123!" }),
-      });
-      const bidder1Data = await bidder1Res.json();
-
-      const bidder2Res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: "bidder2@csk.com", password: "Password123!" }),
-      });
-      const bidder2Data = await bidder2Res.json();
-
-      if (bidder1Data.user) {
-        await fetch(`/api/auctions/${auctionId}/participants`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: bidder1Data.user.id,
-            teamName: teamAName,
-            teamLogoUrl: teamALogo,
-            initialBudget,
-          }),
-        });
-      }
-
-      if (bidder2Data.user) {
-        await fetch(`/api/auctions/${auctionId}/participants`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: bidder2Data.user.id,
-            teamName: teamBName,
-            teamLogoUrl: teamBLogo,
-            initialBudget,
-          }),
-        });
-      }
-
-      // 3. Add Player Items
-      for (let i = 0; i < players.length; i++) {
-        const p = players[i];
-        await fetch(`/api/auctions/${auctionId}/items`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: p.name,
-            category: p.category,
-            basePrice: p.basePrice,
-            description: p.description,
-            imageUrl: p.imageUrl,
-            orderIndex: i + 1,
-          }),
-        });
-      }
-
       addToast("Auction room created successfully!", "success");
-      router.push(`/auction/${auctionId}`);
+      router.push(`/auction/${data.auction.id}`);
     } catch (e: any) {
       addToast(e.message || "Failed to create auction", "error");
     } finally {

@@ -42,7 +42,12 @@ export function SocketProvider({
   onEventRef.current = onEvent;
 
   useEffect(() => {
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+    const socketUrl =
+      typeof window !== "undefined"
+        ? process.env.NEXT_PUBLIC_SOCKET_URL && !process.env.NEXT_PUBLIC_SOCKET_URL.includes("localhost")
+          ? process.env.NEXT_PUBLIC_SOCKET_URL
+          : window.location.origin
+        : "";
     const socketInstance = io(socketUrl, {
       auth: { token },
       transports: ["websocket", "polling"],
