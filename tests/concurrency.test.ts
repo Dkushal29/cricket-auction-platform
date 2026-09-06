@@ -22,13 +22,41 @@ async function runConcurrencyAndIntegrityTests() {
   }
 
   try {
-    // Setup test auction
-    const auctioneer = await prisma.user.findFirst({ where: { role: "AUCTIONEER" } });
-    const bidder1 = await prisma.user.findFirst({ where: { email: "bidder1@rcb.com" } });
-    const bidder2 = await prisma.user.findFirst({ where: { email: "bidder2@csk.com" } });
+    // Setup test auction users
+    let auctioneer = await prisma.user.findFirst({ where: { role: "AUCTIONEER" } });
+    if (!auctioneer) {
+      auctioneer = await prisma.user.create({
+        data: {
+          name: "Concurrency Auctioneer",
+          email: `auctioneer_concurrency_${Date.now()}@test.com`,
+          passwordHash: "test_pw_hash",
+          role: "AUCTIONEER",
+        },
+      });
+    }
 
-    if (!auctioneer || !bidder1 || !bidder2) {
-      throw new Error("Seed users not found. Please run seed script first.");
+    let bidder1 = await prisma.user.findFirst({ where: { email: "bidder1@rcb.com" } });
+    if (!bidder1) {
+      bidder1 = await prisma.user.create({
+        data: {
+          name: "Virat Kohli (RCB)",
+          email: "bidder1@rcb.com",
+          passwordHash: "test_pw_hash",
+          role: "BIDDER",
+        },
+      });
+    }
+
+    let bidder2 = await prisma.user.findFirst({ where: { email: "bidder2@csk.com" } });
+    if (!bidder2) {
+      bidder2 = await prisma.user.create({
+        data: {
+          name: "MS Dhoni (CSK)",
+          email: "bidder2@csk.com",
+          passwordHash: "test_pw_hash",
+          role: "BIDDER",
+        },
+      });
     }
 
     // ----------------------------------------------------
@@ -110,38 +138,62 @@ async function runConcurrencyAndIntegrityTests() {
     const bidResults = await Promise.allSettled(
       amounts.map(async (amt, idx) => {
         const bidderId = idx % 2 === 0 ? bidder1.id : bidder2.id;
+        const maxRetries = 5;
 
-        return prisma.$transaction(async (tx) => {
-          const item = await tx.item.findUnique({ where: { id: testItem.id } });
-          if (!item || item.status !== "ACTIVE") throw new Error("Item not active");
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            return await prisma.$transaction(async (tx) => {
+              const item = await tx.item.findUnique({ where: { id: testItem.id } });
+              if (!item || item.status !== "ACTIVE") throw new Error("Item not active");
 
-          const participant = await tx.auctionParticipant.findUnique({
-            where: { auctionId_userId: { auctionId: testAuction.id, userId: bidderId } },
-          });
-          if (!participant || amt > participant.remainingBudget) throw new Error("Insufficient budget");
+              const participant = await tx.auctionParticipant.findUnique({
+                where: { auctionId_userId: { auctionId: testAuction.id, userId: bidderId } },
+              });
+              if (!participant || amt > participant.remainingBudget) throw new Error("Insufficient budget");
 
-          const currentHighest = await tx.bid.findFirst({
-            where: { itemId: testItem.id },
-            orderBy: { amount: "desc" },
-          });
+              // Atomic Touch on active Item to serialize concurrent transactions on MongoDB
+              await tx.item.update({
+                where: { id: item.id },
+                data: { updatedAt: new Date() },
+              });
 
-          const minReq = currentHighest
-            ? currentHighest.amount + testAuction.minimumBidIncrement
-            : item.basePrice;
+              // Re-read highest bid AFTER Item serialization point
+              const currentHighest = await tx.bid.findFirst({
+                where: { itemId: testItem.id },
+                orderBy: { amount: "desc" },
+              });
 
-          if (amt < minReq) {
-            throw new Error(`BID_TOO_LOW: ${amt} < ${minReq}`);
+              const minReq = currentHighest
+                ? currentHighest.amount + testAuction.minimumBidIncrement
+                : item.basePrice;
+
+              if (amt < minReq) {
+                throw new Error(`BID_TOO_LOW: ${amt} < ${minReq}`);
+              }
+
+              return tx.bid.create({
+                data: {
+                  auctionId: testAuction.id,
+                  itemId: testItem.id,
+                  bidderId,
+                  amount: amt,
+                },
+              });
+            });
+          } catch (err: any) {
+            const isWriteConflict =
+              err.code === "P2034" ||
+              err.message?.includes("WriteConflict") ||
+              err.message?.includes("write conflict") ||
+              err.message?.includes("deadlock");
+
+            if (isWriteConflict && attempt < maxRetries) {
+              await new Promise((r) => setTimeout(r, 10 * attempt));
+              continue;
+            }
+            throw err;
           }
-
-          return tx.bid.create({
-            data: {
-              auctionId: testAuction.id,
-              itemId: testItem.id,
-              bidderId,
-              amount: amt,
-            },
-          });
-        });
+        }
       })
     );
 

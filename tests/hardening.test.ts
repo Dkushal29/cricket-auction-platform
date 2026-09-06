@@ -200,38 +200,62 @@ async function runHardeningTestSuite() {
     const bidResults = await Promise.allSettled(
       amounts.map(async (amt, idx) => {
         const bidderId = idx % 2 === 0 ? bidder1.id : bidder2.id;
+        const maxRetries = 5;
 
-        return prisma.$transaction(async (tx) => {
-          const item = await tx.item.findUnique({ where: { id: testItem.id } });
-          if (!item || item.status !== "ACTIVE") throw new Error("Item not active");
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            return await prisma.$transaction(async (tx) => {
+              const item = await tx.item.findUnique({ where: { id: testItem.id } });
+              if (!item || item.status !== "ACTIVE") throw new Error("Item not active");
 
-          const participant = await tx.auctionParticipant.findUnique({
-            where: { auctionId_userId: { auctionId: testAuction.id, userId: bidderId } },
-          });
-          if (!participant || amt > participant.remainingBudget) throw new Error("Insufficient budget");
+              const participant = await tx.auctionParticipant.findUnique({
+                where: { auctionId_userId: { auctionId: testAuction.id, userId: bidderId } },
+              });
+              if (!participant || amt > participant.remainingBudget) throw new Error("Insufficient budget");
 
-          const currentHighest = await tx.bid.findFirst({
-            where: { itemId: testItem.id },
-            orderBy: { amount: "desc" },
-          });
+              // Atomic Touch on active Item to serialize concurrent transactions on MongoDB
+              await tx.item.update({
+                where: { id: item.id },
+                data: { updatedAt: new Date() },
+              });
 
-          const minReq = currentHighest
-            ? currentHighest.amount + testAuction.minimumBidIncrement
-            : item.basePrice;
+              // Re-read highest bid AFTER Item serialization point
+              const currentHighest = await tx.bid.findFirst({
+                where: { itemId: testItem.id },
+                orderBy: { amount: "desc" },
+              });
 
-          if (amt < minReq) {
-            throw new Error(`BID_TOO_LOW: ${amt} < ${minReq}`);
+              const minReq = currentHighest
+                ? currentHighest.amount + testAuction.minimumBidIncrement
+                : item.basePrice;
+
+              if (amt < minReq) {
+                throw new Error(`BID_TOO_LOW: ${amt} < ${minReq}`);
+              }
+
+              return tx.bid.create({
+                data: {
+                  auctionId: testAuction.id,
+                  itemId: testItem.id,
+                  bidderId,
+                  amount: amt,
+                },
+              });
+            });
+          } catch (err: any) {
+            const isWriteConflict =
+              err.code === "P2034" ||
+              err.message?.includes("WriteConflict") ||
+              err.message?.includes("write conflict") ||
+              err.message?.includes("deadlock");
+
+            if (isWriteConflict && attempt < maxRetries) {
+              await new Promise((r) => setTimeout(r, 10 * attempt));
+              continue;
+            }
+            throw err;
           }
-
-          return tx.bid.create({
-            data: {
-              auctionId: testAuction.id,
-              itemId: testItem.id,
-              bidderId,
-              amount: amt,
-            },
-          });
-        });
+        }
       })
     );
 

@@ -3,12 +3,12 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String               @id @default(uuid())
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   email        String               @unique
   passwordHash String
@@ -24,7 +24,7 @@ model User {
 }
 
 model Auction {
-  id                  String               @id @default(uuid())
+  id                  String               @id @default(auto()) @map("_id") @db.ObjectId
   roomCode            String               @unique @default(uuid())
   bidderInviteA       String?              @unique
   bidderInviteB       String?              @unique
@@ -36,7 +36,7 @@ model Auction {
   season              String               @default("2026")
   bannerUrl           String?
   status              String               @default("DRAFT") // DRAFT, READY, LIVE, PAUSED, COMPLETED, CANCELLED
-  auctioneerId        String
+  auctioneerId        String               @db.ObjectId
   minimumBidIncrement Int                  @default(500000) // In INR
   timerDuration       Int                  @default(30)     // In seconds
   antiSnipeThreshold  Int                  @default(5)      // If bid in last 5s
@@ -60,9 +60,9 @@ model Auction {
 }
 
 model AuctionParticipant {
-  id              String   @id @default(uuid())
-  auctionId       String
-  userId          String
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  auctionId       String   @db.ObjectId
+  userId          String   @db.ObjectId
   teamName        String
   teamLogoUrl     String?
   teamColor       String?  // Hex color e.g. #3E7CB1
@@ -79,8 +79,8 @@ model AuctionParticipant {
 }
 
 model Item {
-  id           String        @id @default(uuid())
-  auctionId    String
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  auctionId    String        @db.ObjectId
   name         String
   imageUrl     String?
   description  String?
@@ -96,7 +96,7 @@ model Item {
   strikeRate   Float?
   economy      Float?
   customStats  String?       // JSON string
-  winnerId     String?
+  winnerId     String?       @db.ObjectId
   winningPrice Int?
   soldAt       DateTime?
   createdAt    DateTime      @default(now())
@@ -109,10 +109,10 @@ model Item {
 }
 
 model Bid {
-  id             String   @id @default(uuid())
-  auctionId      String
-  itemId         String
-  bidderId       String
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  auctionId      String   @db.ObjectId
+  itemId         String   @db.ObjectId
+  bidderId       String   @db.ObjectId
   amount         Int
   sequenceNumber Int      @default(1)
   requestId      String?
@@ -128,10 +128,10 @@ model Bid {
 }
 
 model Transaction {
-  id         String   @id @default(uuid())
-  auctionId  String
-  itemId     String   @unique
-  winnerId   String
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  auctionId  String   @db.ObjectId
+  itemId     String   @unique @db.ObjectId
+  winnerId   String   @db.ObjectId
   winningBid Int
   status     String   @default("COMPLETED") // COMPLETED, REVERSED
   timestamp  DateTime @default(now())
@@ -144,9 +144,9 @@ model Transaction {
 }
 
 model AuditLog {
-  id             String   @id @default(uuid())
-  auctionId      String
-  userId         String?
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  auctionId      String   @db.ObjectId
+  userId         String?  @db.ObjectId
   action         String
   sequenceNumber Int      @default(1)
   metadata       String?  // JSON serialized metadata

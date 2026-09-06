@@ -30,108 +30,143 @@ export async function POST(
     const body = await req.json();
     const { amount, requestId } = placeBidSchema.parse(body);
 
-    // Execute atomic bidding transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. If client provided a requestId, check for duplicate idempotency
-      if (requestId) {
-        const existingBid = await tx.bid.findFirst({
-          where: {
-            auction: {
-              items: { some: { id: itemId } },
+    // Execute atomic bidding transaction with full-snapshot retry on write conflicts
+    const maxRetries = 5;
+    let lastError: any = null;
+    let result: any = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        result = await prisma.$transaction(async (tx) => {
+          // 1. If client provided a requestId, check for duplicate idempotency
+          if (requestId) {
+            const existingBid = await tx.bid.findFirst({
+              where: {
+                auction: {
+                  items: { some: { id: itemId } },
+                },
+                requestId,
+              },
+            });
+            if (existingBid) {
+              throw new Error("DUPLICATE_REQUEST: This bid has already been received and processed");
+            }
+          }
+
+          // 2. Fetch Item with Auction
+          const item = await tx.item.findUnique({
+            where: { id: itemId },
+            include: {
+              auction: true,
             },
-            requestId,
-          },
+          });
+
+          if (!item) {
+            throw new Error("NOT_FOUND: Item not found");
+          }
+
+          const { auction } = item;
+
+          // 3. Validate Auction & Item Status
+          if (auction.status !== "LIVE") {
+            throw new Error(`AUCTION_NOT_LIVE: Cannot bid when auction status is ${auction.status}`);
+          }
+
+          if (item.status !== "ACTIVE") {
+            throw new Error(`ITEM_NOT_ACTIVE: Item is currently ${item.status}. Bidding is only allowed on ACTIVE items.`);
+          }
+
+          // 4. Validate Bidder Participation in this Auction
+          const participant = await tx.auctionParticipant.findUnique({
+            where: {
+              auctionId_userId: {
+                auctionId: auction.id,
+                userId: user.userId,
+              },
+            },
+          });
+
+          if (!participant) {
+            throw new Error("FORBIDDEN: You are not a registered participant in this auction");
+          }
+
+          // 5. Validate Budget
+          if (amount > participant.remainingBudget) {
+            throw new Error(
+              `INSUFFICIENT_BUDGET: Bid amount ₹${amount.toLocaleString("en-IN")} exceeds your remaining purse of ₹${participant.remainingBudget.toLocaleString("en-IN")}`
+            );
+          }
+
+          // 6. Atomic Touch/Update on the active Item document to establish write serialization
+          await tx.item.update({
+            where: { id: item.id },
+            data: { updatedAt: new Date() },
+          });
+
+          // 7. Re-read Current Highest Bid AFTER Item write-lock / serialization point
+          const currentHighestBid = await tx.bid.findFirst({
+            where: {
+              itemId: item.id,
+            },
+            orderBy: { amount: "desc" },
+          });
+
+          const minRequired = currentHighestBid
+            ? currentHighestBid.amount + auction.minimumBidIncrement
+            : item.basePrice;
+
+          if (amount < minRequired) {
+            throw new Error(
+              `BID_TOO_LOW: Bid must be at least ₹${minRequired.toLocaleString("en-IN")} (Current highest: ₹${(currentHighestBid?.amount || 0).toLocaleString("en-IN")}, min increment: ₹${auction.minimumBidIncrement.toLocaleString("en-IN")})`
+            );
+          }
+
+          // 8. Record the Bid atomically
+          const bid = await tx.bid.create({
+            data: {
+              auctionId: auction.id,
+              itemId: item.id,
+              bidderId: user.userId,
+              amount,
+              requestId: requestId || undefined,
+            },
+            include: {
+              bidder: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          });
+
+          return {
+            bid,
+            auction,
+            item,
+            participant,
+          };
         });
-        if (existingBid) {
-          throw new Error("DUPLICATE_REQUEST: This bid has already been received and processed");
+
+        // Transaction completed successfully
+        break;
+      } catch (err: any) {
+        lastError = err;
+        const isWriteConflict =
+          err.code === "P2034" ||
+          err.message?.includes("WriteConflict") ||
+          err.message?.includes("write conflict") ||
+          err.message?.includes("deadlock");
+
+        if (isWriteConflict && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 10 * attempt));
+          continue;
         }
+
+        throw err;
       }
+    }
 
-      // 2. Fetch Item with Auction
-      const item = await tx.item.findUnique({
-        where: { id: itemId },
-        include: {
-          auction: true,
-        },
-      });
-
-      if (!item) {
-        throw new Error("NOT_FOUND: Item not found");
-      }
-
-      const { auction } = item;
-
-      // 3. Validate Auction & Item Status
-      if (auction.status !== "LIVE") {
-        throw new Error(`AUCTION_NOT_LIVE: Cannot bid when auction status is ${auction.status}`);
-      }
-
-      if (item.status !== "ACTIVE") {
-        throw new Error(`ITEM_NOT_ACTIVE: Item is currently ${item.status}. Bidding is only allowed on ACTIVE items.`);
-      }
-
-      // 4. Validate Bidder Participation in this Auction
-      const participant = await tx.auctionParticipant.findUnique({
-        where: {
-          auctionId_userId: {
-            auctionId: auction.id,
-            userId: user.userId,
-          },
-        },
-      });
-
-      if (!participant) {
-        throw new Error("FORBIDDEN: You are not a registered participant in this auction");
-      }
-
-      // 5. Validate Budget
-      if (amount > participant.remainingBudget) {
-        throw new Error(
-          `INSUFFICIENT_BUDGET: Bid amount ₹${amount.toLocaleString("en-IN")} exceeds your remaining purse of ₹${participant.remainingBudget.toLocaleString("en-IN")}`
-        );
-      }
-
-      // 6. Fetch Current Highest Bid
-      const currentHighestBid = await tx.bid.findFirst({
-        where: {
-          itemId: item.id,
-        },
-        orderBy: { amount: "desc" },
-      });
-
-      const minRequired = currentHighestBid
-        ? currentHighestBid.amount + auction.minimumBidIncrement
-        : item.basePrice;
-
-      if (amount < minRequired) {
-        throw new Error(
-          `BID_TOO_LOW: Bid must be at least ₹${minRequired.toLocaleString("en-IN")} (Current highest: ₹${(currentHighestBid?.amount || 0).toLocaleString("en-IN")}, min increment: ₹${auction.minimumBidIncrement.toLocaleString("en-IN")})`
-        );
-      }
-
-      // 7. Record the Bid atomically
-      const bid = await tx.bid.create({
-        data: {
-          auctionId: auction.id,
-          itemId: item.id,
-          bidderId: user.userId,
-          amount,
-          requestId: requestId || undefined,
-        },
-        include: {
-          bidder: {
-            select: { id: true, name: true, email: true },
-          },
-        },
-      });
-
-      return {
-        bid,
-        auction,
-        item,
-        participant,
-      };
-    });
+    if (!result) {
+      throw lastError || new Error("Failed to process bid transaction");
+    }
 
     // Handle Anti-Snipe Timer Extension
     let newSecondsRemaining: number | null = null;
