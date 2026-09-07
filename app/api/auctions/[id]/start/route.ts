@@ -142,11 +142,12 @@ export async function POST(
       });
 
       if (activatedItem) {
-        startItemTimer(auctionId, activatedItem.id, fullAuction.timerDuration);
+        startItemTimer(auctionId, activatedItem.id, 15);
         io.to(`auction_${auctionId}`).emit("player_started", {
           auctionId,
           item: activatedItem as any,
-          timerExpiry: new Date(Date.now() + fullAuction.timerDuration * 1000).toISOString(),
+          secondsRemaining: 15,
+          timerExpiry: new Date(Date.now() + 15 * 1000).toISOString(),
         });
       }
     } catch (e) {

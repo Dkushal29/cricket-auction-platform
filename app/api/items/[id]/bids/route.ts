@@ -232,14 +232,31 @@ export async function POST(
       throw lastError || new Error("Failed to process bid transaction");
     }
 
-    // Authoritatively reset or extend countdown timer on accepted bid
+    // Authoritatively reset countdown timer to 15 seconds on accepted bid
     const { secondsRemaining, timerExpiry } = handleBidTimer(
       result.auction.id,
       result.item.id,
-      result.auction.timerDuration,
-      result.auction.antiSnipeThreshold,
-      result.auction.antiSnipeExtension
+      15
     );
+
+    const formattedBid = {
+      ...result.bid,
+      timestamp: result.bid.timestamp.toISOString(),
+      teamName: result.participant.teamName,
+      bidder: {
+        id: result.bid.bidder.id,
+        name: result.bid.bidder.name,
+        participant: {
+          teamName: result.participant.teamName,
+        },
+      },
+    };
+
+    const currentHolder = {
+      bidderId: result.bid.bidderId,
+      bidderName: result.bid.bidder.name,
+      teamName: result.participant.teamName,
+    };
 
     // Broadcast Authoritative Real-Time Events
     try {
@@ -247,18 +264,9 @@ export async function POST(
       const payload = {
         auctionId: result.auction.id,
         itemId: result.item.id,
-        bid: {
-          ...result.bid,
-          timestamp: result.bid.timestamp.toISOString(),
-          bidder: {
-            id: result.bid.bidder.id,
-            name: result.bid.bidder.name,
-            participant: {
-              teamName: result.participant.teamName,
-            },
-          },
-        },
+        bid: formattedBid,
         newHighestBid: result.bid.amount,
+        currentHolder,
         secondsRemaining,
         timerExpiry,
       };
@@ -268,7 +276,9 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      bid: result.bid,
+      bid: formattedBid,
+      newHighestBid: result.bid.amount,
+      currentHolder,
       secondsRemaining,
       timerExpiry,
     });

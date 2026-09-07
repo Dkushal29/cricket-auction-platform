@@ -15,21 +15,43 @@ export async function GET(
       whereClause.itemId = itemId;
     }
 
-    const bids = await prisma.bid.findMany({
-      where: whereClause,
-      include: {
+    const [bids, participants] = await Promise.all([
+      prisma.bid.findMany({
+        where: whereClause,
+        include: {
+          bidder: {
+            select: { id: true, name: true, email: true },
+          },
+          item: {
+            select: { id: true, name: true, category: true },
+          },
+        },
+        orderBy: { timestamp: "desc" },
+        take: 100,
+      }),
+      prisma.auctionParticipant.findMany({
+        where: { auctionId },
+        select: { userId: true, teamName: true },
+      }),
+    ]);
+
+    const participantMap = new Map(participants.map((p) => [p.userId, p.teamName]));
+
+    const enrichedBids = bids.map((bid) => {
+      const teamName = participantMap.get(bid.bidderId) || "Team";
+      return {
+        ...bid,
+        teamName,
         bidder: {
-          select: { id: true, name: true, email: true },
+          ...bid.bidder,
+          participant: {
+            teamName,
+          },
         },
-        item: {
-          select: { id: true, name: true, category: true },
-        },
-      },
-      orderBy: { timestamp: "desc" },
-      take: 100,
+      };
     });
 
-    return NextResponse.json({ bids });
+    return NextResponse.json({ bids: enrichedBids });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

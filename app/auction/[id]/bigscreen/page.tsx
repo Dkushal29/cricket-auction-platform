@@ -95,7 +95,7 @@ export default function BigScreenBroadcastPage() {
             };
           });
           setBids([]);
-          setSecondsRemaining(auction?.timerDuration || 30);
+          setSecondsRemaining(data.secondsRemaining || 15);
           setSoldAnimation(null);
           break;
 
@@ -104,9 +104,7 @@ export default function BigScreenBroadcastPage() {
             if (prev.some((b) => b.id === data.bid.id)) return prev;
             return [data.bid, ...prev];
           });
-          if (data.secondsRemaining !== undefined) {
-            setSecondsRemaining(data.secondsRemaining);
-          }
+          setSecondsRemaining(data.secondsRemaining !== undefined ? data.secondsRemaining : 15);
           soundEngine.playNewBid();
           break;
 
@@ -277,11 +275,6 @@ export default function BigScreenBroadcastPage() {
                     >
                       00:{String(secondsRemaining).padStart(2, "0")}
                     </div>
-                    {secondsRemaining <= 5 && (
-                      <span className="text-[11px] px-2 py-0.5 rounded-[2px] bg-red-950/80 border border-red-800 text-red-300">
-                        Anti-snipe active
-                      </span>
-                    )}
                   </div>
                 )}
 
@@ -299,7 +292,10 @@ export default function BigScreenBroadcastPage() {
                 <div className="p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C] inline-block px-6">
                   {highestBid ? (
                     <div className="text-[16px] sm:text-[18px]">
-                      Leading: <strong className="text-[#EDEAE1]">{highestBid.bidder?.participant?.teamName || "Team"}</strong>
+                      Leading: <strong className="text-[#EDEAE1]">{highestBid.bidder?.participant?.teamName || (highestBid as any).teamName || "Team"}</strong>
+                      {highestBid.bidder?.name && (
+                        <span className="text-[14px] text-[#8B939A] ml-2">({highestBid.bidder.name})</span>
+                      )}
                     </div>
                   ) : (
                     <div className="text-[14px] text-[#8B939A]">Awaiting opening bid from registered teams</div>

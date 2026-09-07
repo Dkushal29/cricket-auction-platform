@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 import { verifyToken } from "./auth";
 import { verifyGuestToken } from "./guest-session";
 import { isAuctionConfigComplete } from "./auction-state";
+import { finalizeOrUnsoldLot } from "./auction-finalization";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -313,7 +314,7 @@ export function setMockIO(mockIo: any) {
 export function startItemTimer(
   auctionId: string,
   itemId: string,
-  durationSeconds: number,
+  durationSeconds: number = 15,
   onExpire?: () => void
 ) {
   // Clear any existing timer for this auction
@@ -345,7 +346,15 @@ export function startItemTimer(
 
     if (secondsRemaining <= 0) {
       stopItemTimer(auctionId);
-      if (onExpire) onExpire();
+      if (onExpire) {
+        onExpire();
+      }
+      // Server-authoritative auto-finalization on timeout
+      try {
+        await finalizeOrUnsoldLot(auctionId, itemId);
+      } catch (err) {
+        console.error(`Failed to auto-finalize lot ${itemId} for auction ${auctionId}:`, err);
+      }
     }
   }, 1000);
 
@@ -391,58 +400,46 @@ export function extendItemTimer(auctionId: string, extensionSeconds: number): nu
 }
 
 /**
- * Authoritatively handles the bidding timer on every accepted bid:
- * - If currently within the anti-snipe threshold (<= antiSnipeThreshold seconds), extends the timer by antiSnipeExtension seconds.
- * - Otherwise (normal bid with > antiSnipeThreshold remaining), keeps the existing countdown running without resetting.
- * - Broadcasts timer_updated immediately to all clients in the auction room with the authoritative timer state.
+ * Authoritatively resets the bidding countdown timer to exactly resetSeconds (default 15s)
+ * on every accepted bid:
+ * - Resets timerExpiry to Date.now() + resetSeconds * 1000
+ * - Broadcasts timer_updated immediately to all clients in the auction room
  */
 export function handleBidTimer(
   auctionId: string,
   itemId: string,
-  timerDuration: number,
-  antiSnipeThreshold: number,
-  antiSnipeExtension: number,
+  resetSeconds: number = 15,
   onExpire?: () => void
 ): { secondsRemaining: number; timerExpiry: string } {
   const currentTimer = activeTimers.get(auctionId);
   const now = Date.now();
+  const resetDuration = resetSeconds || 15;
+  const newExpiry = now + resetDuration * 1000;
+  const timerExpiryIso = new Date(newExpiry).toISOString();
+  const room = `auction_${auctionId}`;
+  const io = global.ioServer;
 
   if (currentTimer && currentTimer.itemId === itemId) {
-    const msRemaining = currentTimer.timerExpiry - now;
-    const remainingSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
-
-    if (remainingSeconds <= antiSnipeThreshold) {
-      // Anti-snipe extension: add antiSnipeExtension seconds
-      currentTimer.timerExpiry = currentTimer.timerExpiry + antiSnipeExtension * 1000;
-    } else {
-      // Normal bid: keep the existing countdown running without resetting
-    }
-
-    const newMsRemaining = currentTimer.timerExpiry - now;
-    const newSecondsRemaining = Math.max(0, Math.ceil(newMsRemaining / 1000));
-    const timerExpiryIso = new Date(currentTimer.timerExpiry).toISOString();
-    const room = `auction_${auctionId}`;
-    const io = global.ioServer;
+    currentTimer.timerExpiry = newExpiry;
 
     if (io) {
       io.to(room).emit("timer_updated", {
         auctionId,
         itemId,
-        secondsRemaining: newSecondsRemaining,
+        secondsRemaining: resetDuration,
         timerExpiry: timerExpiryIso,
       });
     }
 
     return {
-      secondsRemaining: newSecondsRemaining,
+      secondsRemaining: resetDuration,
       timerExpiry: timerExpiryIso,
     };
   } else {
-    // Start fresh timer for this item if not already running
-    startItemTimer(auctionId, itemId, timerDuration, onExpire);
-    const timerExpiryIso = new Date(now + timerDuration * 1000).toISOString();
+    // Start fresh rolling timer for this item if not already running
+    startItemTimer(auctionId, itemId, resetDuration, onExpire);
     return {
-      secondsRemaining: timerDuration,
+      secondsRemaining: resetDuration,
       timerExpiry: timerExpiryIso,
     };
   }

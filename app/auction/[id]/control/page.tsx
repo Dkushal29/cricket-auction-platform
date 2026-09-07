@@ -89,7 +89,7 @@ export default function AuctioneerControlPage() {
             return { ...prev, activeItemId: data.item.id, items: updatedItems };
           });
           setBids([]);
-          setSecondsRemaining(auction?.timerDuration || 30);
+          setSecondsRemaining(data.secondsRemaining || 15);
           addToast(`Lot #${data.item.orderIndex} ${data.item.name} now on spotlight`, "brass");
           break;
         case "bid_placed":
@@ -97,9 +97,7 @@ export default function AuctioneerControlPage() {
             if (prev.some((b) => b.id === data.bid.id)) return prev;
             return [data.bid, ...prev];
           });
-          if (data.secondsRemaining !== undefined) {
-            setSecondsRemaining(data.secondsRemaining);
-          }
+          setSecondsRemaining(data.secondsRemaining !== undefined ? data.secondsRemaining : 15);
           break;
         case "timer_updated":
           setSecondsRemaining(data.secondsRemaining);
@@ -191,10 +189,9 @@ export default function AuctioneerControlPage() {
                 item={activeItem}
                 currentHighestBid={highestBid?.amount || 0}
                 highestBidderName={highestBid?.bidder?.name}
-                highestBidderTeam={highestBid?.bidder?.participant?.teamName}
+                highestBidderTeam={highestBid?.bidder?.participant?.teamName || (highestBid as any)?.teamName}
                 secondsRemaining={secondsRemaining}
-                timerDuration={auction.timerDuration}
-                antiSnipeThreshold={auction.antiSnipeThreshold}
+                timerDuration={15}
                 isPaused={auction.status === "PAUSED"}
               />
 

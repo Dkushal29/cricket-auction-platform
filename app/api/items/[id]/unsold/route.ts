@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
-import { getIO, stopItemTimer } from "@/lib/socket-server";
+import { finalizeOrUnsoldLot } from "@/lib/auction-finalization";
 
 export async function POST(
   req: Request,
@@ -11,70 +11,32 @@ export async function POST(
     const user = requireAuth(req, ["AUCTIONEER"]);
     const { id: itemId } = params;
 
-    const unsoldResult = await prisma.$transaction(async (tx) => {
-      const item = await tx.item.findUnique({
-        where: { id: itemId },
-        include: { auction: true },
-      });
-
-      if (!item) {
-        throw new Error("NOT_FOUND: Item not found");
-      }
-
-      const { auction } = item;
-
-      if (auction.auctioneerId !== user.userId) {
-        throw new Error("FORBIDDEN: You are not authorized to manage items in this auction");
-      }
-
-      if (auction.status !== "LIVE") {
-        throw new Error(`AUCTION_NOT_LIVE: Cannot mark unsold when auction status is ${auction.status}`);
-      }
-
-      if (item.status !== "ACTIVE") {
-        throw new Error(`ITEM_NOT_ACTIVE: Item cannot be marked unsold because status is already '${item.status}'`);
-      }
-
-      const updatedItem = await tx.item.update({
-        where: { id: item.id },
-        data: {
-          status: "UNSOLD",
-          soldAt: new Date(),
-        },
-      });
-
-      await tx.auction.update({
-        where: { id: auction.id },
-        data: { activeItemId: null },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          auctionId: auction.id,
-          userId: user.userId,
-          action: "ITEM_UNSOLD",
-          metadata: JSON.stringify({ itemId: item.id, itemName: item.name }),
-        },
-      });
-
-      return {
-        item: updatedItem,
-        auctionId: auction.id,
-      };
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+      include: { auction: true },
     });
 
-    stopItemTimer(unsoldResult.auctionId);
+    if (!item) {
+      return NextResponse.json({ error: "NOT_FOUND: Item not found" }, { status: 404 });
+    }
 
-    try {
-      getIO().to(`auction_${unsoldResult.auctionId}`).emit("player_unsold", {
-        auctionId: unsoldResult.auctionId,
-        item: unsoldResult.item as any,
-      });
-    } catch (e) {}
+    if (item.auction.auctioneerId !== user.userId) {
+      return NextResponse.json({ error: "FORBIDDEN: You are not authorized to manage items in this auction" }, { status: 403 });
+    }
+
+    if (item.auction.status !== "LIVE") {
+      return NextResponse.json({ error: `AUCTION_NOT_LIVE: Cannot mark unsold when auction status is ${item.auction.status}` }, { status: 400 });
+    }
+
+    if (item.status !== "ACTIVE") {
+      return NextResponse.json({ error: `ITEM_NOT_ACTIVE: Item cannot be marked unsold because status is already '${item.status}'` }, { status: 400 });
+    }
+
+    const result = await finalizeOrUnsoldLot(item.auctionId, itemId, user.userId);
 
     return NextResponse.json({
       success: true,
-      item: unsoldResult.item,
+      item: result.item,
     });
   } catch (error: any) {
     const msg = error.message || "Failed to mark item as unsold";

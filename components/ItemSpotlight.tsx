@@ -11,8 +11,8 @@ interface ItemSpotlightProps {
   highestBidderName?: string;
   highestBidderTeam?: string;
   secondsRemaining: number | null;
-  timerDuration: number;
-  antiSnipeThreshold: number;
+  timerDuration?: number;
+  antiSnipeThreshold?: number;
   isPaused?: boolean;
 }
 
@@ -22,8 +22,7 @@ export function ItemSpotlight({
   highestBidderName,
   highestBidderTeam,
   secondsRemaining,
-  timerDuration,
-  antiSnipeThreshold,
+  timerDuration = 15,
   isPaused,
 }: ItemSpotlightProps) {
   const [snapAnimate, setSnapAnimate] = useState(false);
@@ -55,7 +54,7 @@ export function ItemSpotlight({
     );
   }
 
-  const isCriticalTimer = secondsRemaining !== null && secondsRemaining <= antiSnipeThreshold && secondsRemaining > 0;
+  const isLowTime = secondsRemaining !== null && secondsRemaining <= 5 && secondsRemaining > 0;
 
   return (
     <div className={`bg-[#1B2229] border border-[#2B343C] rounded-[4px] relative overflow-hidden flex flex-col justify-between ${isSold ? "animate-brass-flash" : ""}`}>
@@ -73,15 +72,9 @@ export function ItemSpotlight({
         {/* Server Authoritative Timer Readout */}
         {secondsRemaining !== null && (
           <div className="flex items-center gap-2">
-            {isCriticalTimer && (
-              <span className="hidden sm:inline text-[12px] font-semibold text-[#C7A046] flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5" />
-                Anti-snipe active
-              </span>
-            )}
             <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-[2px] border ${
-              isCriticalTimer
-                ? "bg-[#10151A] border-[#C7A046] text-[#C7A046]"
+              isLowTime
+                ? "bg-[#10151A] border-[#C7A046] text-[#C7A046] animate-pulse"
                 : "bg-[#10151A] border-[#2B343C] text-[#EDEAE1]"
             }`}>
               <Timer className="w-3.5 h-3.5 text-[#8B939A]" />
@@ -147,7 +140,7 @@ export function ItemSpotlight({
         {/* Right Side (Hero Brass Bid Number: 96-120px) */}
         <div className="lg:col-span-7 flex flex-col justify-center items-center lg:items-end lg:text-right border-t lg:border-t-0 lg:border-l border-[#2B343C] pt-6 lg:pt-0 lg:pl-8">
           <span className="text-[13px] font-medium text-[#8B939A] uppercase tracking-wider mb-1">
-            Current highest bid
+            Current bid
           </span>
 
           <div
@@ -164,17 +157,24 @@ export function ItemSpotlight({
             </div>
           )}
 
-          {/* Current Leader */}
-          <div className="mt-5 pt-4 border-t border-[#2B343C] w-full flex items-center justify-center lg:justify-end gap-2.5">
-            {highestBidderTeam ? (
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4 text-[#8B939A]" />
-                <span className="text-[14px] font-semibold text-[#EDEAE1]">
-                  Leading: {highestBidderTeam}
+          {/* Current Holder / Leader */}
+          <div className="mt-5 pt-4 border-t border-[#2B343C] w-full flex flex-col items-center lg:items-end gap-1">
+            {highestBidderTeam || highestBidderName ? (
+              <div className="flex flex-col items-center lg:items-end">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-[#8B939A]">
+                  Held by
                 </span>
-                <span className="text-[13px] text-[#8B939A]">
-                  ({highestBidderName})
-                </span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <Shield className="w-4 h-4 text-[#8B939A]" />
+                  <span className="text-[16px] font-bold text-[#EDEAE1]">
+                    {highestBidderTeam || "Leading Team"}
+                  </span>
+                  {highestBidderName && (
+                    <span className="text-[14px] text-[#8B939A]">
+                      ({highestBidderName})
+                    </span>
+                  )}
+                </div>
               </div>
             ) : (
               <span className="text-[13px] text-[#8B939A]">
@@ -186,11 +186,11 @@ export function ItemSpotlight({
       </div>
 
       {/* Thin Timer Progress Line */}
-      {secondsRemaining !== null && timerDuration > 0 && (
+      {secondsRemaining !== null && (
         <div className="w-full h-1 bg-[#10151A] border-t border-[#2B343C] overflow-hidden">
           <div
             className="h-full bg-[#C7A046] transition-all duration-1000 ease-linear"
-            style={{ width: `${Math.min(100, Math.max(0, (secondsRemaining / timerDuration) * 100))}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, (secondsRemaining / (timerDuration || 15)) * 100))}%` }}
           />
         </div>
       )}

@@ -79,8 +79,8 @@ export async function POST(
       },
     });
 
-    // Start server countdown timer
-    const duration = auction.timerDuration || 30;
+    // Start server countdown timer (15s rolling clock)
+    const duration = 15;
     const expiryDate = new Date(Date.now() + duration * 1000);
 
     try {
@@ -89,6 +89,7 @@ export async function POST(
       getIO().to(`auction_${auction.id}`).emit("player_started", {
         auctionId: auction.id,
         item: updatedItem as any,
+        secondsRemaining: duration,
         timerExpiry: expiryDate.toISOString(),
       });
     } catch (e) {}
