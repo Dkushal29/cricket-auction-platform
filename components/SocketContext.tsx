@@ -24,10 +24,12 @@ const SocketContext = createContext<SocketContextType>({
 
 export function SocketProvider({
   auctionId,
+  guestToken,
   children,
   onEvent,
 }: {
   auctionId: string;
+  guestToken?: string | null;
   children: React.ReactNode;
   onEvent?: (eventName: string, data: any) => void;
 }) {
@@ -48,8 +50,10 @@ export function SocketProvider({
           ? process.env.NEXT_PUBLIC_SOCKET_URL
           : window.location.origin
         : "";
+    const effectiveToken = token || guestToken || "";
     const socketInstance = io(socketUrl, {
-      auth: { token },
+      auth: { token: effectiveToken },
+      withCredentials: true,
       transports: ["websocket", "polling"],
       reconnectionAttempts: 15,
       reconnectionDelay: 1000,

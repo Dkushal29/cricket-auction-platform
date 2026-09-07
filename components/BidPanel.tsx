@@ -29,7 +29,7 @@ export function BidPanel({
 
   const isAuctionLive = auction.status === "LIVE";
   const isItemActive = item?.status === "ACTIVE";
-  const isBidder = user?.role === "BIDDER";
+  const isBidder = user?.role === "BIDDER" || !!participant;
   const minIncrement = auction.minimumBidIncrement || 500000;
 
   // Minimum required bid to be valid
@@ -45,7 +45,7 @@ export function BidPanel({
   const remainingBudget = participant?.remainingBudget || 0;
   const projectedRemainingBudget = remainingBudget - selectedBidAmount;
   const hasSufficientBudget = remainingBudget >= selectedBidAmount;
-  const isCurrentLeader = highestBidderId === user?.id;
+  const isCurrentLeader = (user?.id && highestBidderId === user.id) || (participant?.userId && highestBidderId === participant.userId);
 
   const canBid =
     isAuctionLive &&
@@ -57,8 +57,8 @@ export function BidPanel({
 
   const handlePlaceBid = async (amountToBid: number) => {
     if (!item) return;
-    if (!user) {
-      addToast("Please log in to submit a bid", "error");
+    if (!user && !participant) {
+      addToast("Valid bidder session required to place a bid", "error");
       return;
     }
     if (amountToBid > remainingBudget) {

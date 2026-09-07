@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ClientAuction, ClientBid, ClientItem } from "@/lib/types";
-import { SocketProvider, useAuctionSocket } from "@/components/SocketContext";
+import { SocketProvider } from "@/components/SocketContext";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/components/ToastNotifications";
 import { AuctionHeader } from "@/components/AuctionHeader";
@@ -13,12 +13,15 @@ import { BidTicker } from "@/components/BidTicker";
 import { InviteModal } from "@/components/InviteModal";
 import { calculateAuctionMomentum } from "@/lib/momentum";
 import { soundEngine } from "@/lib/sound-effects";
-import { Eye, Flame, QrCode, Radio, Share2, Sparkles, Loader2, Volume2, VolumeX } from "lucide-react";
+import { Eye, Flame, QrCode, Radio, Share2, Sparkles, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
 
 export default function SpectatorWatchPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auctionId = params.id as string;
+  const tokenParam = searchParams.get("token");
+
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -27,6 +30,8 @@ export default function SpectatorWatchPage() {
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [guestToken, setGuestToken] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   // Guest Spectator Name
   const [spectatorName, setSpectatorName] = useState<string>("");
@@ -39,6 +44,26 @@ export default function SpectatorWatchPage() {
       setHasEnteredName(true);
     }
   }, [user]);
+
+  // Validate Spectator Invite & Establish Session
+  const validateInvite = useCallback(async () => {
+    try {
+      const inviteUrl = `/api/auctions/${auctionId}/invites${tokenParam ? `?token=${encodeURIComponent(tokenParam)}` : ""}`;
+      const res = await fetch(inviteUrl);
+      const data = await res.json();
+
+      if (res.ok && data.valid) {
+        setGuestToken(data.guestToken || null);
+        setInviteError(null);
+      } else if (!user) {
+        setInviteError(data.error || "Invalid or expired invitation");
+      }
+    } catch (err: any) {
+      if (!user) {
+        setInviteError(err.message || "Failed to validate invite");
+      }
+    }
+  }, [auctionId, tokenParam, user]);
 
   const fetchState = useCallback(async () => {
     try {
@@ -65,8 +90,9 @@ export default function SpectatorWatchPage() {
   }, [auctionId]);
 
   useEffect(() => {
+    validateInvite();
     fetchState();
-  }, [fetchState]);
+  }, [validateInvite, fetchState]);
 
   const handleSocketEvent = useCallback(
     (eventName: string, data: any) => {
@@ -144,10 +170,49 @@ export default function SpectatorWatchPage() {
     setHasEnteredName(true);
   };
 
-  if (loading || !auction) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
         <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      </div>
+    );
+  }
+
+  // Invalid / Expired Invite State
+  if (inviteError && !user) {
+    return (
+      <div className="min-h-screen bg-[#10151A] flex flex-col items-center justify-center p-6 text-center text-[#EDEAE1]">
+        <div className="p-8 bg-[#1B2229] border border-[#2B343C] rounded-[4px] max-w-md w-full space-y-4">
+          <AlertCircle className="w-12 h-12 text-[#B85C38] mx-auto" />
+          <h2 className="text-[20px] font-bold text-[#EDEAE1]">Spectator Stream Unavailable</h2>
+          <p className="text-[#8B939A] text-[14px]">
+            {inviteError}
+          </p>
+          <p className="text-[12px] text-[#8B939A]">
+            Please request an updated spectator link from the auctioneer.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center justify-center gap-2 mx-auto"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return Home</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auction) {
+    return (
+      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
+        <div className="text-center space-y-2">
+          <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
+          <p className="text-[15px]">Auction not found</p>
+        </div>
       </div>
     );
   }
@@ -159,7 +224,7 @@ export default function SpectatorWatchPage() {
   const momentum = calculateAuctionMomentum(bids);
 
   return (
-    <SocketProvider auctionId={auctionId} onEvent={handleSocketEvent}>
+    <SocketProvider auctionId={auctionId} guestToken={guestToken} onEvent={handleSocketEvent}>
       <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
         {/* Top Broadcast Bar */}
         <div className="h-10 px-4 sm:px-6 bg-[#161D24] border-b border-[#2B343C] flex items-center justify-between text-[13px]">

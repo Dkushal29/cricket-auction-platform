@@ -15,22 +15,55 @@ import { BidTicker } from "../../../../components/BidTicker";
 import { calculateSafeBid, getSquadComposition } from "@/lib/squad-strategy";
 import { formatExactINR, formatINR } from "@/lib/auction-state";
 import { soundEngine } from "@/lib/sound-effects";
-import { AlertCircle, ShieldAlert, Sparkles, Trophy, Loader2 } from "lucide-react";
+import { AlertCircle, ShieldAlert, Sparkles, Trophy, Loader2, ArrowLeft } from "lucide-react";
 
 export default function DedicatedBidderPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const auctionId = params.id as string;
+  const tokenParam = searchParams.get("token");
   const teamParam = searchParams.get("team");
 
-  const { user, loading: authLoading, switchUserRole } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { addToast } = useToast();
 
   const [auction, setAuction] = useState<ClientAuction | null>(null);
   const [bids, setBids] = useState<ClientBid[]>([]);
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [guestSession, setGuestSession] = useState<{
+    role: string;
+    teamSlot?: string;
+    participantId?: string;
+    guestToken?: string;
+  } | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
+  // Validate Invite Token & Establish Guest Session
+  const validateInvite = useCallback(async () => {
+    try {
+      const inviteUrl = `/api/auctions/${auctionId}/invites${tokenParam ? `?token=${encodeURIComponent(tokenParam)}` : ""}`;
+      const res = await fetch(inviteUrl);
+      const data = await res.json();
+
+      if (res.ok && data.valid && data.role === "BIDDER") {
+        setGuestSession({
+          role: data.role,
+          teamSlot: data.teamSlot,
+          participantId: data.participantId,
+          guestToken: data.guestToken,
+        });
+        setInviteError(null);
+      } else if (!user) {
+        setInviteError(data.error || "Invalid or expired invitation");
+      }
+    } catch (err: any) {
+      if (!user) {
+        setInviteError(err.message || "Failed to validate invite");
+      }
+    }
+  }, [auctionId, tokenParam, user]);
 
   // Authoritative State Fetcher
   const fetchState = useCallback(async () => {
@@ -58,8 +91,9 @@ export default function DedicatedBidderPage() {
   }, [auctionId]);
 
   useEffect(() => {
+    validateInvite();
     fetchState();
-  }, [fetchState]);
+  }, [validateInvite, fetchState]);
 
   // Handle Socket Events
   const handleSocketEvent = useCallback(
@@ -86,7 +120,11 @@ export default function DedicatedBidderPage() {
         case "bid_placed":
           setBids((prev) => {
             const previousHighest = prev[0];
-            const isOutbid = previousHighest && previousHighest.bidderId === user?.id && data.bid.bidderId !== user?.id;
+            const isOutbid =
+              previousHighest &&
+              (previousHighest.bidderId === user?.id || (guestSession?.participantId && previousHighest.bidderId === guestSession.participantId)) &&
+              data.bid.bidderId !== user?.id &&
+              data.bid.bidderId !== guestSession?.participantId;
             if (isOutbid) {
               soundEngine.playOutbid();
               addToast(`You have been outbid! Current bid: ${formatExactINR(data.bid.amount)}`, "error");
@@ -137,10 +175,10 @@ export default function DedicatedBidderPage() {
           break;
       }
     },
-    [auction?.timerDuration, addToast]
+    [auction?.timerDuration, addToast, user?.id, guestSession?.participantId]
   );
 
-  if (loading || authLoading || !auction) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
         <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
@@ -148,14 +186,62 @@ export default function DedicatedBidderPage() {
     );
   }
 
+  // Invalid / Expired Invite State
+  if (inviteError && !user) {
+    return (
+      <div className="min-h-screen bg-[#10151A] flex flex-col items-center justify-center p-6 text-center text-[#EDEAE1]">
+        <div className="p-8 bg-[#1B2229] border border-[#2B343C] rounded-[4px] max-w-md w-full space-y-4">
+          <AlertCircle className="w-12 h-12 text-[#B85C38] mx-auto" />
+          <h2 className="text-[20px] font-bold text-[#EDEAE1]">Invitation Invalid or Expired</h2>
+          <p className="text-[#8B939A] text-[14px]">
+            {inviteError}
+          </p>
+          <p className="text-[12px] text-[#8B939A]">
+            Please ask the auctioneer to share an updated private invitation link.
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center justify-center gap-2 mx-auto"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return Home</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auction) {
+    return (
+      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
+        <div className="text-center space-y-2">
+          <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
+          <p className="text-[15px]">Auction not found</p>
+        </div>
+      </div>
+    );
+  }
+
   const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || null;
   const highestBid = bids[0];
 
-  // Self participant
-  const selfParticipant =
-    auction.participants.find((p) => p.userId === (teamParam || user?.id)) ||
-    auction.participants[0] ||
-    null;
+  // Derive Self Participant: from guest session participantId, teamSlot, or logged-in user
+  let selfParticipant: ClientParticipant | null = null;
+  if (guestSession?.participantId) {
+    selfParticipant = auction.participants.find((p) => p.id === guestSession.participantId) || null;
+  }
+  if (!selfParticipant && guestSession?.teamSlot) {
+    selfParticipant = guestSession.teamSlot === "B" ? auction.participants[1] : auction.participants[0];
+  }
+  if (!selfParticipant && user) {
+    selfParticipant = auction.participants.find((p) => p.userId === (teamParam || user.id)) || null;
+  }
+  if (!selfParticipant) {
+    selfParticipant = auction.participants[0] || null;
+  }
 
   const opponentParticipant =
     auction.participants.find((p) => p.id !== selfParticipant?.id) ||
@@ -167,7 +253,7 @@ export default function DedicatedBidderPage() {
   const safeBidInfo = selfParticipant ? calculateSafeBid(selfParticipant, wonItems, auction.minSquadSize) : null;
 
   return (
-    <SocketProvider auctionId={auctionId} onEvent={handleSocketEvent}>
+    <SocketProvider auctionId={auctionId} guestToken={guestSession?.guestToken} onEvent={handleSocketEvent}>
       <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
         <RoleSwitcherBar />
         <AuctionHeader auction={auction} />

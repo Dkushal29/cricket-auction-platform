@@ -2,6 +2,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { Server as HttpServer } from "http";
 import { prisma } from "./prisma";
 import { verifyToken } from "./auth";
+import { verifyGuestToken } from "./guest-session";
 
 let io: SocketIOServer | null = null;
 
@@ -58,18 +59,40 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
 
   // Socket Auth & Room Logic
   io.on("connection", (socket) => {
-    // Optional token auth from handshake
-    const token = (socket.handshake.auth?.token as string) || (socket.handshake.query?.token as string);
+    // 1. Extract token from handshake auth, query, or cookies
+    let token = (socket.handshake.auth?.token as string) || (socket.handshake.query?.token as string);
+
+    if (!token && socket.handshake.headers?.cookie) {
+      const cookieHeader = socket.handshake.headers.cookie;
+      const guestMatch = cookieHeader.match(/guest_token=([^;]+)/);
+      const userMatch = cookieHeader.match(/token=([^;]+)/);
+      token = guestMatch?.[1] || userMatch?.[1] || "";
+    }
+
     if (token) {
+      // Try User JWT first
       const user = verifyToken(token);
       if (user) {
-        socket.data.user = user;
+        socket.data.user = { ...user, isGuest: false };
+      } else {
+        // Try Guest Session JWT
+        const guest = verifyGuestToken(token);
+        if (guest) {
+          socket.data.user = guest;
+        }
       }
     }
 
-    // Join Auction Room with presence
+    // Join Auction Room with presence and cross-auction validation
     socket.on("join_auction", async ({ auctionId }: { auctionId: string }) => {
       if (!auctionId) return;
+
+      // If guest, verify they are joining their authorized auction
+      if (socket.data.user?.isGuest && socket.data.user.auctionId !== auctionId) {
+        socket.emit("error", { message: "Unauthorized auction room" });
+        return;
+      }
+
       const room = `auction_${auctionId}`;
       socket.join(room);
 
@@ -80,7 +103,7 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
       roomPresence.get(auctionId)!.set(socket.id, {
         socketId: socket.id,
         userId: socket.data.user?.userId,
-        role: socket.data.user?.role,
+        role: socket.data.user?.role || "SPECTATOR",
       });
 
       broadcastPresence(auctionId);

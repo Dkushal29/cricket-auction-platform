@@ -12,6 +12,21 @@ export interface JWTPayload {
   participantAuctionId?: string;
 }
 
+export interface GuestSessionPayload {
+  isGuest: true;
+  auctionId: string;
+  role: "BIDDER" | "SPECTATOR";
+  participantId?: string; // For bidders: specific AuctionParticipant document ID
+  teamSlot?: "A" | "B";   // For bidders: "A" | "B"
+  tokenVersion: string;   // Current token hash / value for immediate revocation checking
+  userId: string;         // Participant's assigned user ID
+  name: string;
+}
+
+export type AuthenticatedCaller =
+  | { isGuest: false; user: JWTPayload }
+  | { isGuest: true; guest: GuestSessionPayload };
+
 export interface UserSession {
   id: string;
   name: string;

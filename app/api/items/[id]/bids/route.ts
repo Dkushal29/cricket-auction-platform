@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { extractCallerIdentity } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { extendItemTimer, getIO, getRemainingTimerSeconds } from "@/lib/socket-server";
@@ -15,11 +15,38 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = requireAuth(req, ["BIDDER"]);
+    const caller = extractCallerIdentity(req);
+    if (!caller) {
+      return NextResponse.json(
+        { error: "UNAUTHORIZED: Valid bidder account or private guest session required" },
+        { status: 401 }
+      );
+    }
+
+    if (caller.isGuest) {
+      if (caller.guest.role !== "BIDDER") {
+        return NextResponse.json(
+          { error: "FORBIDDEN: Spectators are not permitted to place bids" },
+          { status: 403 }
+        );
+      }
+    } else {
+      if (caller.user.role !== "BIDDER") {
+        return NextResponse.json(
+          { error: "FORBIDDEN: Requires BIDDER role to place bids" },
+          { status: 403 }
+        );
+      }
+    }
+
+    const callerIdentifier = caller.isGuest
+      ? `guest:${caller.guest.participantId || caller.guest.userId}`
+      : `user:${caller.user.userId}`;
+
     const { id: itemId } = params;
 
-    // Rate limit: Max 4 bids per second per bidder on a lot (prevents script spam while allowing fast legitimate clicks)
-    const rateLimit = checkRateLimit(`bid:${user.userId}:${itemId}`, 4, 1000);
+    // Rate limit: Max 4 bids per second per bidder on a lot
+    const rateLimit = checkRateLimit(`bid:${callerIdentifier}:${itemId}`, 4, 1000);
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: "Bidding too fast. Please slow down.", retryAfterMs: rateLimit.resetMs },
@@ -76,18 +103,55 @@ export async function POST(
             throw new Error(`ITEM_NOT_ACTIVE: Item is currently ${item.status}. Bidding is only allowed on ACTIVE items.`);
           }
 
-          // 4. Validate Bidder Participation in this Auction
-          const participant = await tx.auctionParticipant.findUnique({
-            where: {
-              auctionId_userId: {
-                auctionId: auction.id,
-                userId: user.userId,
-              },
-            },
-          });
+          // 4. Validate and resolve Participant strictly on the server (cannot be forged by client)
+          let participant: any = null;
+          let bidderUserId: string = "";
 
-          if (!participant) {
-            throw new Error("FORBIDDEN: You are not a registered participant in this auction");
+          if (caller.isGuest) {
+            // Enforce cross-auction protection
+            if (caller.guest.auctionId !== auction.id) {
+              throw new Error("FORBIDDEN: Guest session is not valid for this auction");
+            }
+
+            // Verify underlying invite token has not been revoked or regenerated
+            let currentInviteToken: string | null = null;
+            if (caller.guest.teamSlot === "A") currentInviteToken = auction.bidderInviteA;
+            else if (caller.guest.teamSlot === "B") currentInviteToken = auction.bidderInviteB;
+
+            if (!currentInviteToken || currentInviteToken !== caller.guest.tokenVersion) {
+              throw new Error("FORBIDDEN: Your invitation has been regenerated or revoked");
+            }
+
+            // Retrieve the participant bound to this guest session
+            if (!caller.guest.participantId) {
+              throw new Error("FORBIDDEN: Invalid guest participant configuration");
+            }
+
+            participant = await tx.auctionParticipant.findUnique({
+              where: { id: caller.guest.participantId },
+            });
+
+            if (!participant || participant.auctionId !== auction.id) {
+              throw new Error("FORBIDDEN: Participant team not found for this auction");
+            }
+
+            bidderUserId = participant.userId;
+          } else {
+            // Logged-in user
+            participant = await tx.auctionParticipant.findUnique({
+              where: {
+                auctionId_userId: {
+                  auctionId: auction.id,
+                  userId: caller.user.userId,
+                },
+              },
+            });
+
+            if (!participant) {
+              throw new Error("FORBIDDEN: You are not a registered participant in this auction");
+            }
+
+            bidderUserId = caller.user.userId;
           }
 
           // 5. Validate Budget
@@ -126,7 +190,7 @@ export async function POST(
             data: {
               auctionId: auction.id,
               itemId: item.id,
-              bidderId: user.userId,
+              bidderId: bidderUserId,
               amount,
               requestId: requestId || undefined,
             },
@@ -225,4 +289,3 @@ export async function POST(
     return NextResponse.json({ error: msg }, { status });
   }
 }
-

@@ -1,8 +1,9 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { JWTPayload, UserRole } from "./types";
+import { JWTPayload, UserRole, GuestSessionPayload, AuthenticatedCaller } from "./types";
 import { NextRequest } from "next/server";
 import { prisma } from "./prisma";
+import { extractGuestSession, verifyGuestToken } from "./guest-session";
 
 const JWT_SECRET = process.env.JWT_SECRET || "production-hardened-jwt-secret-auction-platform-2026";
 
@@ -20,7 +21,11 @@ export function signToken(payload: JWTPayload): string {
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded && decoded.isGuest !== true && decoded.userId) {
+      return decoded as JWTPayload;
+    }
+    return null;
   } catch (err) {
     return null;
   }
@@ -40,6 +45,25 @@ export function extractAuthUser(req: Request | NextRequest): JWTPayload | null {
     if (match && match[1]) {
       return verifyToken(match[1]);
     }
+  }
+
+  return null;
+}
+
+/**
+ * Extracts any authenticated caller identity: either a full User account or a verified Guest session.
+ */
+export function extractCallerIdentity(req: Request | NextRequest): AuthenticatedCaller | null {
+  // 1. Check logged-in user
+  const user = extractAuthUser(req);
+  if (user) {
+    return { isGuest: false, user };
+  }
+
+  // 2. Check guest session
+  const guest = extractGuestSession(req);
+  if (guest) {
+    return { isGuest: true, guest };
   }
 
   return null;
@@ -79,4 +103,5 @@ export async function requireAuctioneerOwnership(
 
   return { user, auction };
 }
+
 
