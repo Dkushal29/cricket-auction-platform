@@ -90,11 +90,30 @@ export default function AuctionArenaPage() {
           addToast(`Auction status changed to ${data.status.toLowerCase()}`, "info");
           break;
 
+        case "re_auction_started":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) =>
+              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any, round: 2 } : i
+            );
+            return {
+              ...prev,
+              activeItemId: data.item.id,
+              activeItem: data.item,
+              items: updatedItems,
+            };
+          });
+          setBids([]);
+          setSecondsRemaining(15);
+          soundEngine.playNewBid();
+          addToast(`ROUND 2 RE-AUCTION: ${data.item.name} is on stage!`, "brass");
+          break;
+
         case "player_started":
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, status: "ACTIVE" as any } : i
+              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any } : i
             );
             return {
               ...prev,
@@ -123,7 +142,7 @@ export default function AuctionArenaPage() {
 
         case "timer_updated":
           setSecondsRemaining(data.secondsRemaining);
-          if (data.secondsRemaining <= 5 && data.secondsRemaining > 0) {
+          if (data.secondsRemaining <= 4 && data.secondsRemaining > 0) {
             soundEngine.playTimerWarning();
           }
           break;
@@ -153,11 +172,30 @@ export default function AuctionArenaPage() {
           );
           break;
 
-        case "player_unsold":
+        case "player_final_unsold":
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, status: "UNSOLD" as any } : i
+              i.id === data.item.id ? { ...i, status: "FINAL_UNSOLD" as any, round: 2 } : i
+            );
+            return {
+              ...prev,
+              activeItemId: null,
+              activeItem: null,
+              items: updatedItems,
+            };
+          });
+          setSecondsRemaining(null);
+          soundEngine.playUnsoldGavel();
+          addToast(`${data.item.name} passed as FINAL UNSOLD`, "error");
+          break;
+
+        case "player_unsold":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const finalStatus = data.isFinal || data.item?.status === "FINAL_UNSOLD" ? "FINAL_UNSOLD" : "UNSOLD";
+            const updatedItems = prev.items.map((i) =>
+              i.id === data.item.id ? { ...i, ...data.item, status: finalStatus as any } : i
             );
             return {
               ...prev,

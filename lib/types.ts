@@ -2,7 +2,7 @@ export type UserRole = "AUCTIONEER" | "BIDDER" | "SPECTATOR";
 
 export type AuctionStatus = "DRAFT" | "READY" | "LIVE" | "PAUSED" | "COMPLETED" | "CANCELLED";
 
-export type ItemStatus = "PENDING" | "ACTIVE" | "SOLD" | "UNSOLD";
+export type ItemStatus = "PENDING" | "ACTIVE" | "SOLD" | "UNSOLD" | "FINAL_UNSOLD";
 
 export interface JWTPayload {
   userId: string;
@@ -43,6 +43,7 @@ export interface ClientItem {
   category: string; // Batsman, Bowler, All-Rounder, Wicket-Keeper
   basePrice: number;
   status: ItemStatus;
+  round?: number;
   orderIndex: number;
   rating?: number | null;
   age?: number | null;

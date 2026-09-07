@@ -80,11 +80,23 @@ export default function AuctioneerControlPage() {
         case "auction_completed":
           setAuction((prev) => (prev ? { ...prev, status: data.status } : null));
           break;
+        case "re_auction_started":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) =>
+              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any, round: 2 } : i
+            );
+            return { ...prev, activeItemId: data.item.id, items: updatedItems };
+          });
+          setBids([]);
+          setSecondsRemaining(15);
+          addToast(`ROUND 2 RE-AUCTION: ${data.item.name} is on stage!`, "brass");
+          break;
         case "player_started":
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, status: "ACTIVE" as any } : i
+              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any } : i
             );
             return { ...prev, activeItemId: data.item.id, items: updatedItems };
           });
@@ -113,10 +125,22 @@ export default function AuctioneerControlPage() {
           });
           setSecondsRemaining(null);
           break;
+        case "player_final_unsold":
+          setAuction((prev) => {
+            if (!prev) return null;
+            const updatedItems = prev.items.map((i) =>
+              i.id === data.item.id ? { ...i, status: "FINAL_UNSOLD" as any, round: 2 } : i
+            );
+            return { ...prev, activeItemId: null, items: updatedItems };
+          });
+          setSecondsRemaining(null);
+          addToast(`${data.item?.name || "Player"} passed as FINAL UNSOLD`, "info");
+          break;
         case "player_unsold":
           setAuction((prev) => {
             if (!prev) return null;
-            const updatedItems = prev.items.map((i) => (i.id === data.item.id ? { ...i, status: "UNSOLD" as any } : i));
+            const finalStatus = data.isFinal || data.item?.status === "FINAL_UNSOLD" ? "FINAL_UNSOLD" : "UNSOLD";
+            const updatedItems = prev.items.map((i) => (i.id === data.item.id ? { ...i, ...data.item, status: finalStatus as any } : i));
             return { ...prev, activeItemId: null, items: updatedItems };
           });
           setSecondsRemaining(null);

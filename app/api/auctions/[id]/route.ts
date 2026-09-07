@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/auth";
+import { requireAuth, extractCallerIdentity } from "@/lib/auth";
 
 export async function GET(
   req: Request,
@@ -55,12 +55,43 @@ export async function GET(
       return NextResponse.json({ error: "Auction not found" }, { status: 404 });
     }
 
+    // Role-based invite privacy sanitization
+    const caller = extractCallerIdentity(req);
+    let sanitizedBidderInviteA: string | null = null;
+    let sanitizedBidderInviteB: string | null = null;
+
+    const isOwnerAuctioneer = Boolean(
+      caller && !caller.isGuest && caller.user.userId === auction.auctioneerId
+    );
+
+    if (isOwnerAuctioneer) {
+      sanitizedBidderInviteA = auction.bidderInviteA;
+      sanitizedBidderInviteB = auction.bidderInviteB;
+    } else if (caller?.isGuest && caller.guest.auctionId === auction.id) {
+      if (caller.guest.teamSlot === "A") {
+        sanitizedBidderInviteA = auction.bidderInviteA;
+      } else if (caller.guest.teamSlot === "B") {
+        sanitizedBidderInviteB = auction.bidderInviteB;
+      }
+      // Spectator guests receive null for both bidder tokens
+    } else if (caller && !caller.isGuest) {
+      const pA = auction.participants[0];
+      const pB = auction.participants[1];
+      if (pA && pA.userId === caller.user.userId) {
+        sanitizedBidderInviteA = auction.bidderInviteA;
+      } else if (pB && pB.userId === caller.user.userId) {
+        sanitizedBidderInviteB = auction.bidderInviteB;
+      }
+    }
+
     // Determine current active item
     const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || null;
 
     return NextResponse.json({
       auction: {
         ...auction,
+        bidderInviteA: sanitizedBidderInviteA,
+        bidderInviteB: sanitizedBidderInviteB,
         activeItem,
       },
     });

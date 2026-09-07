@@ -2,7 +2,7 @@ import { prisma } from "./prisma";
 import { getIO, stopItemTimer } from "./socket-server";
 
 export interface FinalizeResult {
-  status: "SOLD" | "UNSOLD" | "ALREADY_FINALIZED";
+  status: "SOLD" | "UNSOLD" | "FINAL_UNSOLD" | "ALREADY_FINALIZED";
   item: any;
   transaction?: any;
   updatedParticipant?: any;
@@ -171,11 +171,14 @@ export async function finalizeOrUnsoldLot(
               auctionId: auction.id,
             };
           } else {
-            // Case B: Item has 0 bids -> UNSOLD
+            // Case B: Item has 0 bids -> UNSOLD (round 1) or FINAL_UNSOLD (round 2)
+            const isRound2 = (item.round ?? 1) >= 2;
+            const newStatus = isRound2 ? "FINAL_UNSOLD" : "UNSOLD";
+
             const unsoldItem = await tx.item.update({
               where: { id: item.id },
               data: {
-                status: "UNSOLD",
+                status: newStatus,
                 soldAt: new Date(),
               },
             });
@@ -191,17 +194,19 @@ export async function finalizeOrUnsoldLot(
               data: {
                 auctionId: auction.id,
                 userId: auctioneerUserId || auction.auctioneerId,
-                action: "ITEM_UNSOLD",
+                action: isRound2 ? "ITEM_FINAL_UNSOLD" : "ITEM_UNSOLD",
                 metadata: JSON.stringify({
                   itemId: item.id,
                   itemName: item.name,
+                  round: item.round ?? 1,
+                  status: newStatus,
                   finalizedBy: auctioneerUserId ? "MANUAL" : "AUTOMATIC_TIMER",
                 }),
               },
             });
 
             return {
-              status: "UNSOLD" as const,
+              status: (isRound2 ? "FINAL_UNSOLD" : "UNSOLD") as "UNSOLD" | "FINAL_UNSOLD",
               item: unsoldItem,
               auctionId: auction.id,
             };
@@ -233,6 +238,21 @@ export async function finalizeOrUnsoldLot(
             participant: result.updatedParticipant,
           });
         } catch (e) {}
+      } else if (result.status === "FINAL_UNSOLD") {
+        try {
+          const io = getIO();
+          const room = `auction_${result.auctionId}`;
+
+          io.to(room).emit("player_final_unsold", {
+            auctionId: result.auctionId,
+            item: result.item,
+          });
+          io.to(room).emit("player_unsold", {
+            auctionId: result.auctionId,
+            item: result.item,
+            isFinal: true,
+          });
+        } catch (e) {}
       } else if (result.status === "UNSOLD") {
         try {
           const io = getIO();
@@ -241,6 +261,7 @@ export async function finalizeOrUnsoldLot(
           io.to(room).emit("player_unsold", {
             auctionId: result.auctionId,
             item: result.item,
+            isFinal: false,
           });
         } catch (e) {}
       }

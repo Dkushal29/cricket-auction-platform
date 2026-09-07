@@ -14,7 +14,7 @@ interface InviteModalProps {
 }
 
 export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeQrLink, setActiveQrLink] = useState<{ title: string; url: string } | null>(null);
@@ -77,6 +77,10 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
     }
   };
 
+  const isOwnerAuctioneer = Boolean(
+    user?.role === "AUCTIONEER" && user.id === auction.auctioneerId && (auction.bidderInviteA || auction.bidderInviteB)
+  );
+
   return (
     <div className="fixed inset-0 z-50 bg-[#10151A]/85 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-6 max-w-xl w-full space-y-5">
@@ -86,7 +90,7 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
             <Share2 className="w-5 h-5 text-[#C7A046]" />
             <div>
               <h2 className="text-[16px] font-bold text-[#EDEAE1]">
-                Private Auction Invites
+                {isOwnerAuctioneer ? "Private Auction Invites" : "Share Spectator Link"}
               </h2>
               <span className="text-[12px] text-[#8B939A]">
                 Room code: <strong className="text-[#EDEAE1]">{auction.roomCode}</strong>
@@ -103,10 +107,19 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
           </button>
         </div>
 
-        {/* Private Invites Description */}
+        {/* Description */}
         <div className="p-3 bg-[#10151A] border border-[#2B343C] rounded-[3px] text-[13px] text-[#8B939A]">
-          <span className="text-[#EDEAE1] font-semibold block mb-0.5">Passwordless Private Links:</span>
-          Share these private links. Recipients can join instantly without creating an account or logging in.
+          {isOwnerAuctioneer ? (
+            <>
+              <span className="text-[#EDEAE1] font-semibold block mb-0.5">Passwordless Private Links:</span>
+              Share these private links. Recipients can join instantly without creating an account or logging in.
+            </>
+          ) : (
+            <>
+              <span className="text-[#EDEAE1] font-semibold block mb-0.5">Live Spectator Broadcast:</span>
+              Anyone with this link can watch this auction.
+            </>
+          )}
         </div>
 
         {/* Modal Content */}
@@ -127,7 +140,7 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
                 {activeQrLink.title} QR Code
               </h3>
               <p className="text-[12px] text-[#8B939A] mt-0.5">
-                Scan with mobile camera to join instantly without logging in.
+                Scan with mobile camera to watch the live auction stream.
               </p>
             </div>
             <button
@@ -135,11 +148,11 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
               onClick={() => setActiveQrLink(null)}
               className="px-3 py-1 bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] text-[12px] rounded-[2px]"
             >
-              Back to links
+              Back to link
             </button>
           </div>
-        ) : (
-          /* Links List */
+        ) : isOwnerAuctioneer ? (
+          /* Full Auctioneer Management Links List */
           <div className="space-y-3.5">
             {/* 1. Bidder A Link */}
             <div className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "4px solid #3E7CB1" }}>
@@ -268,7 +281,7 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
               </div>
             </div>
 
-            {/* Auctioneer Controller Link (Self) */}
+            {/* Auctioneer Controller Link */}
             <div className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[13px] font-bold text-[#EDEAE1] flex items-center gap-1.5">
@@ -290,6 +303,43 @@ export function InviteModal({ auction, isOpen, onClose }: InviteModalProps) {
                 >
                   {copiedKey === "auctioneer" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedKey === "auctioneer" ? "Copied" : "Copy"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Spectator-Only Share Card */
+          <div className="space-y-3">
+            <div className="p-4 rounded-[3px] bg-[#10151A] border border-[#2B343C] space-y-2.5">
+              <span className="text-[13px] font-bold text-[#EDEAE1] flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-[#8B939A]" />
+                Spectator Link
+              </span>
+              <p className="text-[12px] text-[#8B939A]">
+                Anyone with this link can watch this auction live with real-time bids and timer.
+              </p>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  readOnly
+                  value={spectatorUrl}
+                  className="flex-1 px-2.5 py-1.5 text-[12px] bg-[#161D24] border border-[#2B343C] text-[#8B939A] rounded-[2px] font-mono select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(spectatorUrl, "spectator", "Spectator link")}
+                  className="px-3.5 py-1.5 bg-[#EDEAE1] text-[#10151A] rounded-[2px] text-[12px] font-semibold flex items-center gap-1.5 hover:bg-white"
+                >
+                  {copiedKey === "spectator" ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKey === "spectator" ? "Copied" : "Copy"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveQrLink({ title: "Spectator Live Stream", url: spectatorUrl })}
+                  className="px-3 py-1.5 bg-[#1B2229] border border-[#2B343C] text-[#EDEAE1] rounded-[2px] text-[12px] font-semibold flex items-center gap-1.5 hover:border-[#8B939A]"
+                >
+                  <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
+                  <span>QR</span>
                 </button>
               </div>
             </div>

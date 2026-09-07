@@ -42,9 +42,12 @@ export async function POST(
       );
     }
 
-    if (item.status !== "PENDING") {
+    const isPending = item.status === "PENDING";
+    const isRound1Unsold = item.status === "UNSOLD" && (item.round ?? 1) === 1;
+
+    if (!isPending && !isRound1Unsold) {
       return NextResponse.json(
-        { error: `Item is already in status '${item.status}'. Only PENDING items can be activated.` },
+        { error: `Item is in status '${item.status}' (round ${item.round ?? 1}). Only PENDING or first-round UNSOLD items can be activated.` },
         { status: 400 }
       );
     }
@@ -58,11 +61,16 @@ export async function POST(
       );
     }
 
+    const nextRound = isRound1Unsold ? 2 : (item.round ?? 1);
+
     // Perform activation
     const [updatedItem, updatedAuction] = await prisma.$transaction([
       prisma.item.update({
         where: { id: itemId },
-        data: { status: "ACTIVE" },
+        data: {
+          status: "ACTIVE",
+          round: nextRound,
+        },
       }),
       prisma.auction.update({
         where: { id: auction.id },

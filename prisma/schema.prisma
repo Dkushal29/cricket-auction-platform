@@ -86,7 +86,8 @@ model Item {
   description  String?
   category     String        // Batsman, Bowler, All-Rounder, Wicket-Keeper
   basePrice    Int           // In INR
-  status       String        @default("PENDING") // PENDING, ACTIVE, SOLD, UNSOLD
+  status       String        @default("PENDING") // PENDING, ACTIVE, SOLD, UNSOLD, FINAL_UNSOLD
+  round        Int           @default(1)
   orderIndex   Int           @default(0)
   rating       Float?
   age          Int?

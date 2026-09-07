@@ -28,6 +28,8 @@ export function ItemSpotlight({
   const [snapAnimate, setSnapAnimate] = useState(false);
   const isSold = item?.status === "SOLD";
   const isUnsold = item?.status === "UNSOLD";
+  const isFinalUnsold = item?.status === "FINAL_UNSOLD";
+  const isRound2 = (item?.round ?? 1) >= 2;
 
   // Trigger scale-pulse snap animation whenever currentHighestBid updates
   useEffect(() => {
@@ -54,7 +56,8 @@ export function ItemSpotlight({
     );
   }
 
-  const isLowTime = secondsRemaining !== null && secondsRemaining <= 5 && secondsRemaining > 0;
+  const isLowTime = secondsRemaining !== null && secondsRemaining <= 4 && secondsRemaining > 0;
+  const isFinalizing = secondsRemaining === 0;
 
   return (
     <div className={`bg-[#1B2229] border border-[#2B343C] rounded-[4px] relative overflow-hidden flex flex-col justify-between ${isSold ? "animate-brass-flash" : ""}`}>
@@ -67,26 +70,33 @@ export function ItemSpotlight({
           <span className="text-[14px] font-medium text-[#EDEAE1]">
             {item.category}
           </span>
+          {isRound2 && (
+            <span className="px-2 py-0.5 rounded-[2px] bg-[#C7A046]/15 border border-[#C7A046]/40 text-[12px] font-bold text-[#C7A046]">
+              ROUND 2 RE-AUCTION
+            </span>
+          )}
         </div>
 
-        {/* Server Authoritative Timer Readout */}
+        {/* Header Small Indicator */}
         {secondsRemaining !== null && (
           <div className="flex items-center gap-2">
             <div className={`flex items-center gap-1.5 px-3 py-0.5 rounded-[2px] border ${
               isLowTime
                 ? "bg-[#10151A] border-[#C7A046] text-[#C7A046] animate-pulse"
+                : isFinalizing
+                ? "bg-[#C7A046]/20 border-[#C7A046] text-[#C7A046]"
                 : "bg-[#10151A] border-[#2B343C] text-[#EDEAE1]"
             }`}>
               <Timer className="w-3.5 h-3.5 text-[#8B939A]" />
-              <span className="font-hero text-[20px] font-bold tabular-nums">
-                {secondsRemaining}s
+              <span className="font-hero text-[18px] font-bold tabular-nums">
+                {isFinalizing ? "0s" : `${secondsRemaining}s`}
               </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Main Stage: Player Visuals & Huge Hero Bid Readout */}
+      {/* Main Stage: Player Visuals & Hero Bid & Prominent Timer */}
       <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
         {/* Left Side (Player Image & Bio) */}
         <div className="lg:col-span-5 flex flex-col items-center sm:items-start text-center sm:text-left">
@@ -122,6 +132,21 @@ export function ItemSpotlight({
                 <span className="font-hero text-[30px] font-black text-[#8B939A] tracking-wider uppercase">
                   UNSOLD
                 </span>
+                <span className="text-[11px] text-[#8B939A] mt-1">
+                  Eligible for Re-Auction
+                </span>
+              </div>
+            )}
+
+            {/* FINAL UNSOLD Stamp */}
+            {isFinalUnsold && (
+              <div className="absolute inset-0 bg-[#10151A]/85 flex flex-col items-center justify-center p-2 text-center border border-[#B85C38]">
+                <span className="font-hero text-[28px] font-black text-[#B85C38] tracking-wider uppercase leading-none">
+                  FINAL UNSOLD
+                </span>
+                <span className="text-[11px] text-[#8B939A] mt-1">
+                  Passed Out of Auction
+                </span>
               </div>
             )}
           </div>
@@ -137,28 +162,30 @@ export function ItemSpotlight({
           </p>
         </div>
 
-        {/* Right Side (Hero Brass Bid Number: 96-120px) */}
-        <div className="lg:col-span-7 flex flex-col justify-center items-center lg:items-end lg:text-right border-t lg:border-t-0 lg:border-l border-[#2B343C] pt-6 lg:pt-0 lg:pl-8">
-          <span className="text-[13px] font-medium text-[#8B939A] uppercase tracking-wider mb-1">
-            Current bid
-          </span>
+        {/* Right Side (Hero Brass Bid Number + Prominent Countdown Clock) */}
+        <div className="lg:col-span-7 flex flex-col justify-center items-center lg:items-end lg:text-right border-t lg:border-t-0 lg:border-l border-[#2B343C] pt-6 lg:pt-0 lg:pl-8 space-y-4">
+          <div>
+            <span className="text-[13px] font-medium text-[#8B939A] uppercase tracking-wider mb-1 block">
+              Current bid
+            </span>
 
-          <div
-            className={`font-hero text-[80px] sm:text-[104px] lg:text-[116px] font-black text-[#C7A046] tabular-nums leading-none tracking-tight transition-transform duration-200 ${
-              snapAnimate ? "animate-bid-snap" : ""
-            }`}
-          >
-            {currentHighestBid > 0 ? formatExactINR(currentHighestBid) : "—"}
+            <div
+              className={`font-hero text-[80px] sm:text-[104px] lg:text-[116px] font-black text-[#C7A046] tabular-nums leading-none tracking-tight transition-transform duration-200 ${
+                snapAnimate ? "animate-bid-snap" : ""
+              }`}
+            >
+              {currentHighestBid > 0 ? formatExactINR(currentHighestBid) : "—"}
+            </div>
+
+            {currentHighestBid > 0 && (
+              <div className="text-[15px] text-[#8B939A] mt-1 font-medium">
+                ({formatINR(currentHighestBid)})
+              </div>
+            )}
           </div>
 
-          {currentHighestBid > 0 && (
-            <div className="text-[15px] text-[#8B939A] mt-1 font-medium">
-              ({formatINR(currentHighestBid)})
-            </div>
-          )}
-
           {/* Current Holder / Leader */}
-          <div className="mt-5 pt-4 border-t border-[#2B343C] w-full flex flex-col items-center lg:items-end gap-1">
+          <div className="pt-3 border-t border-[#2B343C] w-full flex flex-col items-center lg:items-end gap-1">
             {highestBidderTeam || highestBidderName ? (
               <div className="flex flex-col items-center lg:items-end">
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-[#8B939A]">
@@ -182,14 +209,53 @@ export function ItemSpotlight({
               </span>
             )}
           </div>
+
+          {/* Prominent Visible 15-Second Bid Timer Module */}
+          {secondsRemaining !== null && !isSold && !isUnsold && !isFinalUnsold && (
+            <div className="w-full pt-2 flex flex-col items-center lg:items-end">
+              <div
+                className={`flex flex-col items-center justify-center px-6 py-2 rounded-[4px] border transition-all ${
+                  isFinalizing
+                    ? "bg-[#C7A046]/15 border-[#C7A046] animate-pulse"
+                    : isLowTime
+                    ? "bg-[#C7A046]/10 border-[#C7A046] text-[#C7A046]"
+                    : "bg-[#10151A] border-[#2B343C] text-[#EDEAE1]"
+                }`}
+              >
+                <span className="text-[11px] uppercase tracking-widest font-bold text-[#8B939A]">
+                  Bidding Time
+                </span>
+                {isFinalizing ? (
+                  <span className="text-[16px] font-bold text-[#C7A046] py-1">
+                    FINALIZING...
+                  </span>
+                ) : (
+                  <div className="flex items-baseline gap-1 my-0.5">
+                    <span
+                      className={`font-hero text-[42px] sm:text-[48px] font-black tabular-nums leading-none ${
+                        isLowTime ? "text-[#C7A046] animate-pulse" : "text-[#EDEAE1]"
+                      }`}
+                    >
+                      {secondsRemaining}
+                    </span>
+                    <span className="text-[12px] font-bold text-[#8B939A] uppercase">
+                      Seconds
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Thin Timer Progress Line */}
-      {secondsRemaining !== null && (
-        <div className="w-full h-1 bg-[#10151A] border-t border-[#2B343C] overflow-hidden">
+      {secondsRemaining !== null && !isSold && !isUnsold && !isFinalUnsold && (
+        <div className="w-full h-1.5 bg-[#10151A] border-t border-[#2B343C] overflow-hidden">
           <div
-            className="h-full bg-[#C7A046] transition-all duration-1000 ease-linear"
+            className={`h-full transition-all duration-1000 ease-linear ${
+              isLowTime ? "bg-[#C7A046] animate-pulse" : "bg-[#C7A046]"
+            }`}
             style={{ width: `${Math.min(100, Math.max(0, (secondsRemaining / (timerDuration || 15)) * 100))}%` }}
           />
         </div>
