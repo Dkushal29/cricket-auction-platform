@@ -5,7 +5,7 @@ import { ClientAuction, ClientItem, ClientParticipant } from "@/lib/types";
 import { formatExactINR, formatINR } from "@/lib/auction-state";
 import { useAuth } from "./AuthContext";
 import { useToast } from "./ToastNotifications";
-import { ShieldCheck, AlertCircle } from "lucide-react";
+import { ShieldCheck, AlertCircle, Zap, Loader2 } from "lucide-react";
 
 interface BidPanelProps {
   auction: ClientAuction;
@@ -98,81 +98,87 @@ export function BidPanel({
   if (!isBidder) return null;
 
   return (
-    <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 sm:p-5 space-y-4">
+    <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 sm:p-5 space-y-4 shadow-lg">
       {/* Header info */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-[#2B343C] pb-3">
         <div>
-          <h3 className="text-[15px] font-semibold text-[#EDEAE1]">
-            Place bid
+          <h3 className="text-[16px] font-bold text-[#EDEAE1] flex items-center gap-2">
+            <Zap className="w-4 h-4 text-[#C7A046]" />
+            <span>Place Bid Console</span>
           </h3>
-          <p className="text-[13px] text-[#8B939A]">
-            {participant?.teamName} rail console
+          <p className="text-[12px] text-[#8B939A]">
+            {participant?.teamName || "Team"} • Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(remainingBudget)}</strong>
           </p>
         </div>
 
         {isCurrentLeader && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[12px] font-medium text-emerald-400">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Highest bidder</span>
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-[2px] bg-emerald-500/10 border border-emerald-500/40 text-[12px] font-bold text-emerald-400">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Highest Bidder</span>
           </div>
         )}
       </div>
 
-      {/* Quick Increment Buttons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {[minIncrement, minIncrement * 2, minIncrement * 5, minIncrement * 10].map((inc) => {
-          const calculatedBid = (currentHighestBid > 0 ? currentHighestBid : item?.basePrice || 0) + inc;
-          const disabled = !isAuctionLive || !isItemActive || remainingBudget < calculatedBid || loading;
+      {/* Quick Increment Buttons with 52px Minimum Touch Target */}
+      <div>
+        <label className="text-[11px] uppercase tracking-wider font-bold text-[#8B939A] block mb-2">
+          Quick Bid Increments
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[minIncrement, minIncrement * 2, minIncrement * 5, minIncrement * 10].map((inc) => {
+            const calculatedBid = (currentHighestBid > 0 ? currentHighestBid : item?.basePrice || 0) + inc;
+            const disabled = !isAuctionLive || !isItemActive || remainingBudget < calculatedBid || loading;
 
-          return (
-            <button
-              key={inc}
-              type="button"
-              onClick={() => {
-                setCustomAmount(calculatedBid.toString());
-                handlePlaceBid(calculatedBid);
-              }}
-              disabled={disabled}
-              className={`p-2.5 rounded-[2px] border text-left transition-all ${
-                disabled
-                  ? "bg-[#10151A] border-[#2B343C] text-[#8B939A] opacity-50 cursor-not-allowed"
-                  : "bg-[#10151A] border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] active:scale-[0.98]"
-              }`}
-            >
-              <span className="text-[11px] text-[#8B939A] block">+{formatINR(inc)}</span>
-              <span className="font-hero text-[16px] font-bold tabular-nums block">
-                {formatINR(calculatedBid)}
-              </span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={inc}
+                type="button"
+                onClick={() => {
+                  setCustomAmount(calculatedBid.toString());
+                  handlePlaceBid(calculatedBid);
+                }}
+                disabled={disabled}
+                className={`min-h-[52px] p-2.5 rounded-[2px] border text-left transition-all flex flex-col justify-center ${
+                  disabled
+                    ? "bg-[#10151A] border-[#2B343C] text-[#8B939A] opacity-50 cursor-not-allowed"
+                    : "bg-[#10151A] border-[#2B343C] hover:border-[#C7A046] text-[#EDEAE1] active:scale-[0.98]"
+                }`}
+              >
+                <span className="text-[11px] text-[#8B939A] font-medium block">+{formatINR(inc)}</span>
+                <span className="font-hero text-[17px] font-bold tabular-nums block text-[#C7A046]">
+                  {formatINR(calculatedBid)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Custom Bid Input & Projected Purse Preview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C]">
         <div>
-          <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
-            Custom amount (₹)
+          <label className="text-[11px] font-bold text-[#8B939A] uppercase tracking-wider block mb-1">
+            Custom Amount (INR)
           </label>
           <input
             type="number"
             step={minIncrement}
             min={minRequiredBid}
             max={remainingBudget}
-            placeholder={`Min ${minRequiredBid}`}
+            placeholder={`Min ${formatINR(minRequiredBid)}`}
             value={customAmount}
             onChange={(e) => setCustomAmount(e.target.value)}
             disabled={!isAuctionLive || !isItemActive || loading}
-            className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[16px] tabular-nums focus:outline-none focus:border-[#8B939A]"
+            className="w-full px-3 py-2 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[18px] tabular-nums focus:outline-none focus:border-[#C7A046]"
           />
         </div>
 
         <div className="flex flex-col justify-center">
-          <span className="text-[12px] font-medium text-[#8B939A] block mb-0.5">
-            Your budget after this bid
+          <span className="text-[11px] font-bold text-[#8B939A] uppercase tracking-wider block mb-0.5">
+            Purse After Bid
           </span>
           <div
-            className={`font-hero text-[20px] font-bold tabular-nums ${
+            className={`font-hero text-[22px] font-bold tabular-nums ${
               projectedRemainingBudget < 0 ? "text-red-400" : "text-[#EDEAE1]"
             }`}
           >
@@ -184,26 +190,31 @@ export function BidPanel({
         </div>
       </div>
 
-      {/* Primary Action Button (no arrows appended per guidelines) */}
+      {/* Primary High-Impact Place Bid Button (Minimum 52px Height, Touch-Friendly) */}
       <button
         type="button"
         onClick={() => handlePlaceBid(selectedBidAmount)}
         disabled={!canBid}
-        className={`w-full py-3 rounded-[2px] font-semibold text-[15px] transition-all flex items-center justify-center ${
+        className={`w-full min-h-[54px] rounded-[2px] font-bold text-[16px] transition-all flex items-center justify-center gap-2 ${
           canBid
-            ? "bg-[#EDEAE1] text-[#10151A] hover:bg-white active:scale-[0.99]"
+            ? "bg-[#C7A046] text-[#10151A] hover:bg-[#D9A94E] active:scale-[0.99] shadow-md cursor-pointer"
             : "bg-[#2B343C] text-[#8B939A] cursor-not-allowed"
         }`}
       >
-        {loading
-          ? "Submitting bid..."
-          : !isAuctionLive
-          ? "Auction paused"
-          : !isItemActive
-          ? "Waiting for active lot"
-          : !hasSufficientBudget
-          ? "Insufficient budget"
-          : `Place bid for ${formatExactINR(selectedBidAmount)}`}
+        {loading ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Submitting Bid...</span>
+          </>
+        ) : !isAuctionLive ? (
+          "Auction Paused"
+        ) : !isItemActive ? (
+          "Waiting for Active Lot"
+        ) : !hasSufficientBudget ? (
+          "Insufficient Budget"
+        ) : (
+          `PLACE BID FOR ${formatExactINR(selectedBidAmount)}`
+        )}
       </button>
     </div>
   );
