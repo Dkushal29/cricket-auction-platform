@@ -42,6 +42,7 @@ export function SocketProvider({
   const [lastEventTime, setLastEventTime] = useState(Date.now());
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
+  const isFirstConnectRef = useRef(true);
 
   useEffect(() => {
     const socketUrl =
@@ -62,9 +63,15 @@ export function SocketProvider({
     socketInstance.on("connect", () => {
       setConnected(true);
       socketInstance.emit("join_auction", { auctionId });
-      // Request fresh authoritative state on reconnect
-      if (onEventRef.current) {
-        onEventRef.current("reconnected_sync", { auctionId });
+      
+      // On initial mount, the page's useEffect already fetches authoritative state.
+      // Only fire reconnected_sync on actual reconnection after a disconnection.
+      if (isFirstConnectRef.current) {
+        isFirstConnectRef.current = false;
+      } else {
+        if (onEventRef.current) {
+          onEventRef.current("reconnected_sync", { auctionId });
+        }
       }
     });
 

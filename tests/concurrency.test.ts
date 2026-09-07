@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { isValidAuctionTransition } from "../lib/auction-state";
+import { generateSecureToken, generateRoomCode } from "../lib/invite-crypto";
 
 const prisma = new PrismaClient();
 
@@ -80,6 +81,10 @@ async function runConcurrencyAndIntegrityTests() {
     // Create an isolated test auction and item
     const testAuction = await prisma.auction.create({
       data: {
+        roomCode: generateRoomCode(),
+        bidderInviteA: generateSecureToken(16),
+        bidderInviteB: generateSecureToken(16),
+        spectatorInvite: generateSecureToken(16),
         name: "Concurrency Test Auction",
         status: "LIVE",
         auctioneerId: auctioneer.id,

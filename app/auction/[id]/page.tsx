@@ -46,7 +46,14 @@ export default function AuctionArenaPage() {
         const bidsRes = await fetch(`/api/auctions/${auctionId}/bids?itemId=${data.auction.activeItemId}`);
         if (bidsRes.ok) {
           const bidsData = await bidsRes.json();
-          setBids(bidsData.bids || []);
+          setBids((currentBids) => {
+            const fetchedBids: ClientBid[] = bidsData.bids || [];
+            const fetchedIds = new Set(fetchedBids.map((b) => b.id));
+            const inFlightBids = currentBids.filter(
+              (b) => !fetchedIds.has(b.id) && b.itemId === data.auction.activeItemId
+            );
+            return [...fetchedBids, ...inFlightBids].sort((a, b) => b.amount - a.amount);
+          });
         }
       } else {
         setBids([]);
@@ -67,6 +74,11 @@ export default function AuctionArenaPage() {
   const handleSocketEvent = useCallback(
     (eventName: string, data: any) => {
       switch (eventName) {
+        case "reconnected_sync":
+          // Authoritative state reconciliation upon socket reconnection
+          fetchAuthoritativeState();
+          break;
+
         case "auction_started":
         case "auction_paused":
         case "auction_resumed":

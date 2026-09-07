@@ -192,6 +192,9 @@ async function runAuctionCreationTests() {
           const failedAuction = await tx.auction.create({
             data: {
               roomCode: testRoomCode,
+              bidderInviteA: generateSecureToken(16),
+              bidderInviteB: generateSecureToken(16),
+              spectatorInvite: generateSecureToken(16),
               name: "Rollback Test Auction",
               auctioneerId: auctioneer.id,
               status: "DRAFT",

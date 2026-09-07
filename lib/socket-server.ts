@@ -107,6 +107,20 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
       });
 
       broadcastPresence(auctionId);
+
+      // If an item timer is actively running for this auction, emit the exact remaining time
+      // immediately to the newly joined/reconnected socket without waiting for the next 1s interval tick
+      const activeTimer = activeTimers.get(auctionId);
+      if (activeTimer) {
+        const msRemaining = activeTimer.timerExpiry - Date.now();
+        const secondsRemaining = Math.max(0, Math.ceil(msRemaining / 1000));
+        socket.emit("timer_updated", {
+          auctionId,
+          itemId: activeTimer.itemId,
+          secondsRemaining,
+          timerExpiry: new Date(activeTimer.timerExpiry).toISOString(),
+        });
+      }
     });
 
     // Leave Auction Room
