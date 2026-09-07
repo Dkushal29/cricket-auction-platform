@@ -57,6 +57,7 @@ export function AuctionControlPanel({
   const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || null;
   const highestBid = bids[0] || activeItem?.bids?.[0];
   const isDraft = auction.status === "DRAFT";
+  const isReady = auction.status === "READY";
   const isLive = auction.status === "LIVE";
   const isPaused = auction.status === "PAUSED";
   const isTerminal = auction.status === "COMPLETED" || auction.status === "CANCELLED";
@@ -108,7 +109,7 @@ export function AuctionControlPanel({
 
           {/* Master State Transition Actions */}
           <div className="flex items-center gap-2">
-            {isDraft && (
+            {(isDraft || isReady) && (
               <button
                 type="button"
                 onClick={fetchReadinessAndPrompt}
@@ -116,7 +117,7 @@ export function AuctionControlPanel({
                 className="px-3 py-1.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center gap-1.5"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Start auction (Pre-flight check)</span>
+                <span>{isReady ? "Start auction (Ready)" : "Start auction (Pre-flight check)"}</span>
               </button>
             )}
 

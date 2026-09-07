@@ -16,7 +16,7 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
   const router = useRouter();
   const { user, token } = useAuth();
   const { addToast } = useToast();
-  const { connected, spectatorCount } = useAuctionSocket();
+  const { connected, spectatorCount, bidderAReady, bidderBReady, allBiddersReady } = useAuctionSocket();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +49,9 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
     }
   };
 
+  const isTeamAReady = bidderAReady || auction.status === "READY";
+  const isTeamBReady = bidderBReady || auction.status === "READY";
+
   return (
     <div className="max-w-4xl w-full mx-auto p-4 sm:p-8 space-y-6">
       {/* Header card */}
@@ -60,7 +63,7 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
               <h1 className="text-[22px] font-bold text-[#EDEAE1]">{auction.name}</h1>
             </div>
             <p className="text-[13px] text-[#8B939A]">
-              Room code: <strong className="text-[#EDEAE1]">{auction.roomCode}</strong>
+              Room code: <strong className="text-[#EDEAE1]">{auction.roomCode}</strong> &bull; Status: <strong className="text-[#C7A046] font-semibold">{auction.status}</strong>
             </p>
           </div>
 
@@ -100,7 +103,17 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
                 <span className="text-[11px] text-[#3E7CB1] font-bold block">Team Alpha</span>
                 <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamA?.teamName || "Team Alpha"}</h3>
               </div>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              {isTeamAReady ? (
+                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Ready</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
+                  <Circle className="w-3.5 h-3.5" />
+                  <span>Waiting</span>
+                </div>
+              )}
             </div>
             <div className="text-[12px] text-[#8B939A]">
               Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamA?.initialBudget || 0)}</strong>
@@ -114,7 +127,17 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
                 <span className="text-[11px] text-[#B85C38] font-bold block">Team Beta</span>
                 <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamB?.teamName || "Team Beta"}</h3>
               </div>
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              {isTeamBReady ? (
+                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Ready</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
+                  <Circle className="w-3.5 h-3.5" />
+                  <span>Waiting</span>
+                </div>
+              )}
             </div>
             <div className="text-[12px] text-[#8B939A]">
               Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamB?.initialBudget || 0)}</strong>
@@ -152,12 +175,14 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
               className="px-6 py-3 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-bold text-[14px] hover:bg-white flex items-center gap-2"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>{loading ? "Starting auction..." : "Start live auction"}</span>
+              <span>{loading ? "Starting auction..." : auction.status === "READY" ? "Launch live arena" : "Start live auction"}</span>
             </button>
           </div>
         ) : (
           <div className="p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#8B939A] text-center">
-            Waiting for the auctioneer to begin the live auction...
+            {auction.status === "READY"
+              ? "All bidders ready! Waiting for the auctioneer to launch..."
+              : "Waiting for all bidders to connect in lobby..."}
           </div>
         )}
       </div>

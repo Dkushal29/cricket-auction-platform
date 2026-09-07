@@ -3,6 +3,7 @@ import { Server as HttpServer } from "http";
 import { prisma } from "./prisma";
 import { verifyToken } from "./auth";
 import { verifyGuestToken } from "./guest-session";
+import { isAuctionConfigComplete } from "./auction-state";
 
 let io: SocketIOServer | null = null;
 
@@ -17,15 +18,81 @@ interface AuctionTimerState {
 const activeTimers: Map<string, AuctionTimerState> = new Map();
 
 // Presence tracking per auction room: Map<auctionId, Set<socketId with metadata>>
-interface SocketMetadata {
+export interface SocketMetadata {
   socketId: string;
   userId?: string;
   role?: string;
+  teamSlot?: string;
+  participantId?: string;
+  auctionId?: string;
 }
 
 const roomPresence: Map<string, Map<string, SocketMetadata>> = new Map();
 
-function broadcastPresence(auctionId: string) {
+export function checkBidderReadiness(
+  auctionId: string,
+  participants: { id: string; userId?: string }[]
+): {
+  bidderAReady: boolean;
+  bidderBReady: boolean;
+  allBiddersReady: boolean;
+} {
+  const socketsMap = roomPresence.get(auctionId);
+  if (!socketsMap || participants.length < 2) {
+    return { bidderAReady: false, bidderBReady: false, allBiddersReady: false };
+  }
+
+  const pA = participants[0];
+  const pB = participants[1];
+
+  let bidderAReady = false;
+  let bidderBReady = false;
+
+  for (const meta of socketsMap.values()) {
+    // Spectators are strictly excluded
+    if (meta.role !== "BIDDER") continue;
+
+    // Cross-auction check: guest or user must belong to this specific auction
+    if (meta.auctionId && meta.auctionId !== auctionId) continue;
+
+    // Match Team A
+    if (
+      meta.teamSlot === "A" ||
+      (meta.participantId && meta.participantId === pA.id) ||
+      (meta.userId && meta.userId === pA.userId)
+    ) {
+      bidderAReady = true;
+    }
+
+    // Match Team B
+    if (
+      meta.teamSlot === "B" ||
+      (meta.participantId && meta.participantId === pB.id) ||
+      (meta.userId && meta.userId === pB.userId)
+    ) {
+      bidderBReady = true;
+    }
+  }
+
+  return {
+    bidderAReady,
+    bidderBReady,
+    allBiddersReady: bidderAReady && bidderBReady,
+  };
+}
+
+export function registerMockPresence(auctionId: string, metadata: SocketMetadata) {
+  if (!roomPresence.has(auctionId)) {
+    roomPresence.set(auctionId, new Map());
+  }
+  roomPresence.get(auctionId)!.set(metadata.socketId, metadata);
+}
+
+export function clearMockPresence(auctionId: string) {
+  roomPresence.delete(auctionId);
+}
+
+export async function broadcastPresence(auctionId: string) {
   if (!io) return;
   const room = `auction_${auctionId}`;
   const socketsMap = roomPresence.get(auctionId);
@@ -35,13 +102,73 @@ function broadcastPresence(auctionId: string) {
   const hasAuctioneer = connectedUsers.some((u) => u.role === "AUCTIONEER");
   const connectedUserIds = connectedUsers.map((u) => u.userId).filter(Boolean);
 
-  io.to(room).emit("presence_updated", {
-    auctionId,
-    spectatorCount: totalCount,
-    hasAuctioneer,
-    connectedUserIds,
-  });
-  io.to(room).emit("spectator_count_updated", { auctionId, count: totalCount });
+  try {
+    const auction = await prisma.auction.findUnique({
+      where: { id: auctionId },
+      include: { participants: true, items: true },
+    });
+
+    const { bidderAReady, bidderBReady, allBiddersReady } = auction
+      ? checkBidderReadiness(auctionId, auction.participants)
+      : { bidderAReady: false, bidderBReady: false, allBiddersReady: false };
+
+    // If auction is in DRAFT, both required bidder teams are connected AND configuration is complete, transition to READY
+    if (
+      auction &&
+      auction.status === "DRAFT" &&
+      allBiddersReady &&
+      isAuctionConfigComplete(auction)
+    ) {
+      await prisma.auction.update({
+        where: { id: auctionId },
+        data: { status: "READY" },
+      });
+      io.to(room).emit("auction_ready", {
+        auctionId,
+        status: "READY",
+        bidderAReady,
+        bidderBReady,
+      });
+      io.to(room).emit("auction_status_changed", {
+        auctionId,
+        status: "READY",
+      });
+    } else if (
+      auction &&
+      auction.status === "READY" &&
+      !allBiddersReady
+    ) {
+      // If a bidder disconnects while in READY (prior to live start), revert to DRAFT
+      await prisma.auction.update({
+        where: { id: auctionId },
+        data: { status: "DRAFT" },
+      });
+      io.to(room).emit("auction_status_changed", {
+        auctionId,
+        status: "DRAFT",
+      });
+    }
+
+    io.to(room).emit("presence_updated", {
+      auctionId,
+      spectatorCount: totalCount,
+      hasAuctioneer,
+      connectedUserIds,
+      bidderAReady,
+      bidderBReady,
+      allBiddersReady,
+    });
+    io.to(room).emit("spectator_count_updated", { auctionId, count: totalCount });
+  } catch (e) {
+    // Database or socket error fallback
+    io.to(room).emit("presence_updated", {
+      auctionId,
+      spectatorCount: totalCount,
+      hasAuctioneer,
+      connectedUserIds,
+    });
+    io.to(room).emit("spectator_count_updated", { auctionId, count: totalCount });
+  }
 }
 
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
@@ -104,6 +231,9 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
         socketId: socket.id,
         userId: socket.data.user?.userId,
         role: socket.data.user?.role || "SPECTATOR",
+        teamSlot: socket.data.user?.teamSlot,
+        participantId: socket.data.user?.participantId,
+        auctionId: socket.data.user?.auctionId || auctionId,
       });
 
       broadcastPresence(auctionId);

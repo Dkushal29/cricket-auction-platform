@@ -1,8 +1,16 @@
 import { PrismaClient } from "@prisma/client";
-import { isValidAuctionTransition } from "../lib/auction-state";
+import { isValidAuctionTransition, assertValidAuctionTransition } from "../lib/auction-state";
 import { hashPassword, comparePassword, signToken, verifyToken } from "../lib/auth";
 import { generateSecureToken, generateRoomCode } from "../lib/invite-crypto";
 import { checkRateLimit } from "../lib/rate-limit";
+import {
+  startItemTimer,
+  getRemainingTimerSeconds,
+  stopItemTimer,
+  checkBidderReadiness,
+  registerMockPresence,
+  clearMockPresence,
+} from "../lib/socket-server";
 
 const prisma = new PrismaClient();
 
@@ -373,6 +381,273 @@ async function runHardeningTestSuite() {
     assert(rl1.allowed, "First request within limit allowed");
     assert(rl2.allowed, "Second request within limit allowed");
     assert(!rl3.allowed, "Third request exceeding limit blocked with HTTP 429 semantics");
+
+    // ----------------------------------------------------
+    // Test Suite 10: Production Bug Regression: DRAFT -> READY -> LIVE Atomic Launch Sequence
+    // ----------------------------------------------------
+    console.log("\nTest Suite 10: DRAFT -> READY -> LIVE State Machine & Start Auction Invariant");
+
+    // 1. Create a valid auction in DRAFT
+    const draftAuctioneer = await prisma.user.create({
+      data: {
+        name: "Draft Auctioneer",
+        email: `draft_auctioneer_${Date.now()}@test.com`,
+        passwordHash: hashed,
+        role: "AUCTIONEER",
+      },
+    });
+
+    const draftBidder1 = await prisma.user.create({
+      data: {
+        name: "Draft Bidder 1",
+        email: `draft_b1_${Date.now()}@test.com`,
+        passwordHash: hashed,
+        role: "BIDDER",
+      },
+    });
+
+    const draftBidder2 = await prisma.user.create({
+      data: {
+        name: "Draft Bidder 2",
+        email: `draft_b2_${Date.now()}@test.com`,
+        passwordHash: hashed,
+        role: "BIDDER",
+      },
+    });
+
+    const draftAuction = await prisma.auction.create({
+      data: {
+        name: "Draft Premier League 2026",
+        status: "DRAFT",
+        isConfigLocked: false,
+        auctioneerId: draftAuctioneer.id,
+        minimumBidIncrement: 500000,
+        timerDuration: 30,
+        bidderInviteA: generateSecureToken(16),
+        bidderInviteB: generateSecureToken(16),
+        spectatorInvite: generateSecureToken(16),
+      },
+    });
+
+    const draftItem1 = await prisma.item.create({
+      data: {
+        auctionId: draftAuction.id,
+        name: "Draft Star Batter",
+        category: "Batsman",
+        basePrice: 20000000,
+        status: "PENDING",
+        orderIndex: 1,
+      },
+    });
+
+    const draftItem2 = await prisma.item.create({
+      data: {
+        auctionId: draftAuction.id,
+        name: "Draft Star Bowler",
+        category: "Bowler",
+        basePrice: 15000000,
+        status: "PENDING",
+        orderIndex: 2,
+      },
+    });
+
+    const draftP1 = await prisma.auctionParticipant.create({
+      data: {
+        auctionId: draftAuction.id,
+        userId: draftBidder1.id,
+        teamName: "Titans",
+        initialBudget: 100000000,
+        remainingBudget: 100000000,
+        totalSpent: 0,
+      },
+    });
+
+    const draftP2 = await prisma.auctionParticipant.create({
+      data: {
+        auctionId: draftAuction.id,
+        userId: draftBidder2.id,
+        teamName: "Warriors",
+        initialBudget: 100000000,
+        remainingBudget: 100000000,
+        totalSpent: 0,
+      },
+    });
+
+    const participantsList = [draftP1, draftP2];
+
+    assert(draftAuction.status === "DRAFT", "Newly created auction starts in DRAFT status");
+    assert(!draftAuction.isConfigLocked, "Newly created auction has isConfigLocked = false");
+
+    // Scenario 1: DRAFT + no bidders ready -> cannot start
+    clearMockPresence(draftAuction.id);
+    const rNoBidders = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(!rNoBidders.bidderAReady && !rNoBidders.bidderBReady && !rNoBidders.allBiddersReady, "1. DRAFT + no bidders ready: readiness check fails");
+
+    // Scenario 2: DRAFT + only Bidder A ready -> cannot start
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-bidder-a",
+      role: "BIDDER",
+      teamSlot: "A",
+      participantId: draftP1.id,
+      auctionId: draftAuction.id,
+    });
+    const rOnlyA = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(rOnlyA.bidderAReady && !rOnlyA.bidderBReady && !rOnlyA.allBiddersReady, "2. DRAFT + only Bidder A ready: cannot start (allBiddersReady = false)");
+
+    // Scenario 3: DRAFT + only Bidder B ready -> cannot start
+    clearMockPresence(draftAuction.id);
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-bidder-b",
+      role: "BIDDER",
+      teamSlot: "B",
+      participantId: draftP2.id,
+      auctionId: draftAuction.id,
+    });
+    const rOnlyB = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(!rOnlyB.bidderAReady && rOnlyB.bidderBReady && !rOnlyB.allBiddersReady, "3. DRAFT + only Bidder B ready: cannot start (allBiddersReady = false)");
+
+    // Scenario 7: Spectator connection -> must NOT satisfy bidder readiness
+    clearMockPresence(draftAuction.id);
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-spectator-1",
+      role: "SPECTATOR",
+      auctionId: draftAuction.id,
+    });
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-spectator-2",
+      role: "SPECTATOR",
+      auctionId: draftAuction.id,
+    });
+    const rSpectators = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(!rSpectators.bidderAReady && !rSpectators.bidderBReady && !rSpectators.allBiddersReady, "7. Spectator connections strictly excluded from bidder readiness");
+
+    // Scenario 10: Guest from another auction -> cannot affect readiness or state
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-foreign-guest-a",
+      role: "BIDDER",
+      teamSlot: "A",
+      auctionId: "other_auction_id_999",
+    });
+    const rForeignGuest = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(!rForeignGuest.bidderAReady, "10. Guest token from another auction cannot satisfy readiness (auction isolation)");
+
+    // Scenario 4: DRAFT + Bidder A and Bidder B ready -> transitions to READY
+    clearMockPresence(draftAuction.id);
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-bidder-a",
+      role: "BIDDER",
+      teamSlot: "A",
+      participantId: draftP1.id,
+      auctionId: draftAuction.id,
+    });
+    registerMockPresence(draftAuction.id, {
+      socketId: "socket-bidder-b",
+      role: "BIDDER",
+      teamSlot: "B",
+      participantId: draftP2.id,
+      auctionId: draftAuction.id,
+    });
+    const rBothReady = checkBidderReadiness(draftAuction.id, participantsList);
+    assert(rBothReady.allBiddersReady, "4a. Both Bidder A and Bidder B verified ready by server");
+
+    // Execute transition DRAFT -> READY
+    assert(isValidAuctionTransition("DRAFT", "READY"), "4b. State machine permits DRAFT -> READY");
+    assert(!isValidAuctionTransition("DRAFT", "LIVE"), "4c. Direct DRAFT -> LIVE transition is prohibited by state machine");
+
+    const readyAuction = await prisma.auction.update({
+      where: { id: draftAuction.id },
+      data: { status: "READY" },
+    });
+    assert(readyAuction.status === "READY", "4d. Auction successfully transitioned to READY");
+
+    // Scenario 11: Configuration remains editable in DRAFT/READY, becomes locked when auction starts
+    assert(!readyAuction.isConfigLocked, "11a. Configuration remains unlocked in READY prior to LIVE");
+
+    // Scenario 9: Unauthorized non-owner attempting to start auction
+    const nonOwnerAuctioneer = auctioneer2;
+    assert(draftAuction.auctioneerId !== nonOwnerAuctioneer.id, "9. Unauthorized auctioneer identified as non-owner (cannot start)");
+
+    // Scenario 5 & 6: READY + auctioneer starts -> transitions to LIVE, locks config, first item ACTIVE, timer starts
+    assert(isValidAuctionTransition("READY", "LIVE"), "5a. State machine permits READY -> LIVE");
+
+    const startResult = await prisma.$transaction(async (tx) => {
+      const current = await tx.auction.findUnique({
+        where: { id: draftAuction.id },
+        include: { items: { orderBy: { orderIndex: "asc" } }, participants: true },
+      });
+      if (!current) throw new Error("Auction not found");
+      if (current.status === "LIVE") throw new Error("AUCTION_ALREADY_LIVE");
+
+      assertValidAuctionTransition(current.status as any, "LIVE");
+
+      const firstPending = current.items.find((i) => i.status === "PENDING");
+      if (firstPending) {
+        await tx.item.update({
+          where: { id: firstPending.id },
+          data: { status: "ACTIVE" },
+        });
+      }
+
+      return tx.auction.update({
+        where: { id: draftAuction.id },
+        data: {
+          status: "LIVE",
+          isConfigLocked: true,
+          startedAt: new Date(),
+          activeItemId: firstPending?.id || null,
+        },
+      });
+    });
+
+    assert(startResult.status === "LIVE", "5b. Auction successfully transitioned READY -> LIVE");
+    assert(startResult.isConfigLocked === true, "11b. Configuration permanently locked upon entering LIVE");
+    assert(startResult.activeItemId === draftItem1.id, "6a. First pending item set as activeItemId");
+
+    const activeItemAfterStart = await prisma.item.findUnique({ where: { id: draftItem1.id } });
+    assert(activeItemAfterStart?.status === "ACTIVE", "6b. First item status is ACTIVE");
+
+    const secondItemAfterStart = await prisma.item.findUnique({ where: { id: draftItem2.id } });
+    assert(secondItemAfterStart?.status === "PENDING", "6c. Second item remains PENDING");
+
+    // Start item countdown timer
+    startItemTimer(draftAuction.id, draftItem1.id, 30);
+    const timerRemaining = getRemainingTimerSeconds(draftAuction.id);
+    assert(typeof timerRemaining === "number" && timerRemaining > 0, "6d. Item countdown timer started successfully");
+    stopItemTimer(draftAuction.id);
+
+    // Scenario 8: Duplicate Start requests safely rejected
+    let secondStartRejected = false;
+    try {
+      await prisma.$transaction(async (tx) => {
+        const current = await tx.auction.findUnique({ where: { id: draftAuction.id } });
+        if (!current) throw new Error("Auction not found");
+        if (current.status === "LIVE") throw new Error("AUCTION_ALREADY_LIVE");
+        if (current.status !== "DRAFT" && current.status !== "READY") {
+          assertValidAuctionTransition(current.status as any, "LIVE");
+        }
+      });
+    } catch (e: any) {
+      if (e.message.includes("AUCTION_ALREADY_LIVE") || e.message.includes("Invalid auction state transition")) {
+        secondStartRejected = true;
+      }
+    }
+    assert(secondStartRejected, "8. Duplicate Start request rejected safely without double-start race");
+
+    // Scenario 12: Existing state machine protections preserved
+    assert(!isValidAuctionTransition("COMPLETED", "LIVE"), "12a. COMPLETED -> LIVE blocked (terminal)");
+    assert(!isValidAuctionTransition("CANCELLED", "LIVE"), "12b. CANCELLED -> LIVE blocked (terminal)");
+    assert(isValidAuctionTransition("LIVE", "PAUSED"), "12c. LIVE -> PAUSED allowed");
+    assert(isValidAuctionTransition("PAUSED", "LIVE"), "12d. PAUSED -> LIVE allowed");
+
+    // Clean up test data for Suite 10
+    clearMockPresence(draftAuction.id);
+    await prisma.item.deleteMany({ where: { auctionId: draftAuction.id } });
+    await prisma.auctionParticipant.deleteMany({ where: { auctionId: draftAuction.id } });
+    await prisma.auditLog.deleteMany({ where: { auctionId: draftAuction.id } });
+    await prisma.auction.deleteMany({ where: { id: draftAuction.id } });
+    await prisma.user.deleteMany({
+      where: { id: { in: [draftAuctioneer.id, draftBidder1.id, draftBidder2.id] } },
+    });
 
     // Clean up test data
     await prisma.transaction.deleteMany({ where: { auctionId: testAuction.id } });

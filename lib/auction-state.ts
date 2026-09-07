@@ -21,6 +21,41 @@ export function assertValidAuctionTransition(from: AuctionStatus, to: AuctionSta
   }
 }
 
+export interface AuctionPreflightData {
+  name: string;
+  minimumBidIncrement: number;
+  timerDuration: number;
+  bidderInviteA?: string | null;
+  bidderInviteB?: string | null;
+  spectatorInvite?: string | null;
+  participants: Array<{
+    initialBudget: number;
+    remainingBudget: number;
+    totalSpent: number;
+  }>;
+  items: Array<{
+    basePrice: number;
+  }>;
+}
+
+export function isAuctionConfigComplete(auction: AuctionPreflightData): boolean {
+  if (!auction.name || auction.name.trim().length < 3) return false;
+  if (!auction.participants || auction.participants.length < 2) return false;
+  if (!auction.items || auction.items.length < 1) return false;
+  if (
+    auction.participants.some(
+      (p) => p.initialBudget <= 0 || p.remainingBudget !== p.initialBudget - p.totalSpent
+    )
+  ) {
+    return false;
+  }
+  if (auction.items.some((i) => i.basePrice <= 0)) return false;
+  if (auction.minimumBidIncrement <= 0) return false;
+  if (auction.timerDuration < 5) return false;
+  if (!auction.bidderInviteA || !auction.bidderInviteB || !auction.spectatorInvite) return false;
+  return true;
+}
+
 export function formatINR(amount: number): string {
   if (amount >= 10000000) {
     const cr = (amount / 10000000).toFixed(2).replace(/\.00$/, "");

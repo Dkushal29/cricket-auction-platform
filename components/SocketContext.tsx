@@ -10,6 +10,9 @@ interface SocketContextType {
   spectatorCount: number;
   onlineUserIds: string[];
   hasAuctioneer: boolean;
+  bidderAReady: boolean;
+  bidderBReady: boolean;
+  allBiddersReady: boolean;
   lastEventTime: number;
 }
 
@@ -19,6 +22,9 @@ const SocketContext = createContext<SocketContextType>({
   spectatorCount: 0,
   onlineUserIds: [],
   hasAuctioneer: false,
+  bidderAReady: false,
+  bidderBReady: false,
+  allBiddersReady: false,
   lastEventTime: 0,
 });
 
@@ -39,6 +45,9 @@ export function SocketProvider({
   const [spectatorCount, setSpectatorCount] = useState(1);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const [hasAuctioneer, setHasAuctioneer] = useState(false);
+  const [bidderAReady, setBidderAReady] = useState(false);
+  const [bidderBReady, setBidderBReady] = useState(false);
+  const [allBiddersReady, setAllBiddersReady] = useState(false);
   const [lastEventTime, setLastEventTime] = useState(Date.now());
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
@@ -87,12 +96,17 @@ export function SocketProvider({
       if (data.spectatorCount !== undefined) setSpectatorCount(data.spectatorCount);
       if (data.connectedUserIds) setOnlineUserIds(data.connectedUserIds);
       if (data.hasAuctioneer !== undefined) setHasAuctioneer(data.hasAuctioneer);
+      if (data.bidderAReady !== undefined) setBidderAReady(data.bidderAReady);
+      if (data.bidderBReady !== undefined) setBidderBReady(data.bidderBReady);
+      if (data.allBiddersReady !== undefined) setAllBiddersReady(data.allBiddersReady);
       if (onEventRef.current) {
         onEventRef.current("presence_updated", data);
       }
     });
 
     const events = [
+      "auction_ready",
+      "auction_status_changed",
       "auction_started",
       "auction_paused",
       "auction_resumed",
@@ -124,7 +138,7 @@ export function SocketProvider({
       socketInstance.emit("leave_auction", { auctionId });
       socketInstance.disconnect();
     };
-  }, [auctionId, token]);
+  }, [auctionId, token, guestToken]);
 
   return (
     <SocketContext.Provider
@@ -134,6 +148,9 @@ export function SocketProvider({
         spectatorCount,
         onlineUserIds,
         hasAuctioneer,
+        bidderAReady,
+        bidderBReady,
+        allBiddersReady,
         lastEventTime,
       }}
     >

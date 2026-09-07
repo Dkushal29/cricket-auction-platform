@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuctioneerOwnership } from "@/lib/auth";
+import { checkBidderReadiness, getIO } from "@/lib/socket-server";
 
 export interface ReadinessCheckItem {
   id: string;
@@ -15,7 +16,7 @@ export async function GET(
 ) {
   try {
     const { id: auctionId } = params;
-    const { user, auction } = await requireAuctioneerOwnership(req, auctionId);
+    const { user } = await requireAuctioneerOwnership(req, auctionId);
 
     const fullAuction = await prisma.auction.findUnique({
       where: { id: auctionId },
@@ -32,6 +33,11 @@ export async function GET(
     if (!fullAuction) {
       return NextResponse.json({ error: "Auction not found" }, { status: 404 });
     }
+
+    const { bidderAReady, bidderBReady, allBiddersReady } = checkBidderReadiness(
+      auctionId,
+      fullAuction.participants
+    );
 
     const checks: ReadinessCheckItem[] = [
       {
@@ -94,15 +100,45 @@ export async function GET(
         passed: !!(fullAuction.bidderInviteA && fullAuction.bidderInviteB && fullAuction.spectatorInvite),
         details: "Unguessable crypto invite keys ready for distribution",
       },
+      {
+        id: "bidder_a_ready",
+        label: "Team Alpha (Bidder A) connected",
+        passed: bidderAReady || fullAuction.status === "READY",
+        details: bidderAReady || fullAuction.status === "READY" ? "Bidder A is connected" : "Awaiting Bidder A connection",
+      },
+      {
+        id: "bidder_b_ready",
+        label: "Team Beta (Bidder B) connected",
+        passed: bidderBReady || fullAuction.status === "READY",
+        details: bidderBReady || fullAuction.status === "READY" ? "Bidder B is connected" : "Awaiting Bidder B connection",
+      },
     ];
 
     const allPassed = checks.every(c => c.passed);
 
+    let currentStatus = fullAuction.status;
+    if (allPassed && currentStatus === "DRAFT") {
+      const updated = await prisma.auction.update({
+        where: { id: auctionId },
+        data: { status: "READY" },
+      });
+      currentStatus = updated.status;
+      try {
+        const io = getIO();
+        io.to(`auction_${auctionId}`).emit("auction_ready", {
+          auctionId,
+          status: "READY",
+        });
+      } catch (e) {}
+    }
+
     return NextResponse.json({
       allPassed,
-      readyToStart: allPassed && (fullAuction.status === "DRAFT" || fullAuction.status === "READY"),
-      status: fullAuction.status,
+      readyToStart: allPassed && currentStatus === "READY",
+      status: currentStatus,
       checks,
+      bidderAReady,
+      bidderBReady,
     });
   } catch (error: any) {
     const status = error.message.startsWith("UNAUTHORIZED")

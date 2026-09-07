@@ -111,6 +111,8 @@ export default function DedicatedBidderPage() {
           fetchState();
           break;
 
+        case "auction_ready":
+        case "auction_status_changed":
         case "auction_started":
         case "auction_paused":
         case "auction_resumed":
