@@ -177,6 +177,18 @@ export default function LoginPage() {
               {loading ? "Authenticating..." : "Sign in"}
             </button>
           </form>
+
+          <div className="mt-4 pt-4 border-t border-[#2B343C] text-center">
+            <p className="text-[13px] text-[#8B939A]">
+              Don&apos;t have an account?{" "}
+              <a
+                href="/register"
+                className="text-[#C7A046] font-semibold hover:underline"
+              >
+                Create one
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
