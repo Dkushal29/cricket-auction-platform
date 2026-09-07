@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { extractCallerIdentity } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
-import { extendItemTimer, getIO, getRemainingTimerSeconds } from "@/lib/socket-server";
+import { getIO, handleBidTimer } from "@/lib/socket-server";
 
 const placeBidSchema = z.object({
   amount: z.number().int().positive(),
@@ -232,15 +232,16 @@ export async function POST(
       throw lastError || new Error("Failed to process bid transaction");
     }
 
-    // Handle Anti-Snipe Timer Extension
-    let newSecondsRemaining: number | null = null;
-    const remainingSeconds = getRemainingTimerSeconds(result.auction.id);
+    // Authoritatively reset or extend countdown timer on accepted bid
+    const { secondsRemaining, timerExpiry } = handleBidTimer(
+      result.auction.id,
+      result.item.id,
+      result.auction.timerDuration,
+      result.auction.antiSnipeThreshold,
+      result.auction.antiSnipeExtension
+    );
 
-    if (remainingSeconds !== null && remainingSeconds <= result.auction.antiSnipeThreshold) {
-      newSecondsRemaining = extendItemTimer(result.auction.id, result.auction.antiSnipeExtension);
-    }
-
-    // Broadcast Real-Time Event
+    // Broadcast Authoritative Real-Time Events
     try {
       const io = getIO();
       const payload = {
@@ -258,9 +259,8 @@ export async function POST(
           },
         },
         newHighestBid: result.bid.amount,
-        timerExpiry: newSecondsRemaining
-          ? new Date(Date.now() + newSecondsRemaining * 1000).toISOString()
-          : undefined,
+        secondsRemaining,
+        timerExpiry,
       };
 
       io.to(`auction_${result.auction.id}`).emit("bid_placed", payload as any);
@@ -269,6 +269,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       bid: result.bid,
+      secondsRemaining,
+      timerExpiry,
     });
   } catch (error: any) {
     if (error instanceof z.ZodError) {

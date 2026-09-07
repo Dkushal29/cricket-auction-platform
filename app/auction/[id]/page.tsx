@@ -109,7 +109,13 @@ export default function AuctionArenaPage() {
           break;
 
         case "bid_placed":
-          setBids((prev) => [data.bid, ...prev]);
+          setBids((prev) => {
+            if (prev.some((b) => b.id === data.bid.id)) return prev;
+            return [data.bid, ...prev];
+          });
+          if (data.secondsRemaining !== undefined) {
+            setSecondsRemaining(data.secondsRemaining);
+          }
           soundEngine.playNewBid();
           addToast(
             `New high bid of ${formatExactINR(data.newHighestBid)} by ${data.bid?.bidder?.participant?.teamName || "Team"}`,

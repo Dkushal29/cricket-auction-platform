@@ -5,17 +5,27 @@ import { verifyToken } from "./auth";
 import { verifyGuestToken } from "./guest-session";
 import { isAuctionConfigComplete } from "./auction-state";
 
-let io: SocketIOServer | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var ioServer: SocketIOServer | undefined;
+  // eslint-disable-next-line no-var
+  var auctionActiveTimers: Map<string, AuctionTimerState> | undefined;
+  // eslint-disable-next-line no-var
+  var auctionRoomPresence: Map<string, Map<string, SocketMetadata>> | undefined;
+}
 
 // Track active countdown timers per auction
-interface AuctionTimerState {
+export interface AuctionTimerState {
   auctionId: string;
   itemId: string;
   timerExpiry: number; // unix timestamp ms
   intervalId: NodeJS.Timeout;
 }
 
-const activeTimers: Map<string, AuctionTimerState> = new Map();
+if (!global.auctionActiveTimers) {
+  global.auctionActiveTimers = new Map();
+}
+const activeTimers = global.auctionActiveTimers;
 
 // Presence tracking per auction room: Map<auctionId, Set<socketId with metadata>>
 export interface SocketMetadata {
@@ -27,7 +37,10 @@ export interface SocketMetadata {
   auctionId?: string;
 }
 
-const roomPresence: Map<string, Map<string, SocketMetadata>> = new Map();
+if (!global.auctionRoomPresence) {
+  global.auctionRoomPresence = new Map();
+}
+const roomPresence = global.auctionRoomPresence;
 
 export function checkBidderReadiness(
   auctionId: string,
@@ -93,6 +106,7 @@ export function clearMockPresence(auctionId: string) {
 }
 
 export async function broadcastPresence(auctionId: string) {
+  const io = global.ioServer;
   if (!io) return;
   const room = `auction_${auctionId}`;
   const socketsMap = roomPresence.get(auctionId);
@@ -172,9 +186,9 @@ export async function broadcastPresence(auctionId: string) {
 }
 
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
-  if (io) return io;
+  if (global.ioServer) return global.ioServer;
 
-  io = new SocketIOServer(httpServer, {
+  const io = new SocketIOServer(httpServer, {
     cors: {
       origin: process.env.NEXT_PUBLIC_APP_URL || "*",
       methods: ["GET", "POST", "PATCH", "DELETE"],
@@ -183,6 +197,8 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
     pingInterval: 10000,
     pingTimeout: 5000,
   });
+
+  global.ioServer = io;
 
   // Socket Auth & Room Logic
   io.on("connection", (socket) => {
@@ -282,10 +298,15 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
 }
 
 export function getIO(): SocketIOServer {
+  const io = global.ioServer;
   if (!io) {
     throw new Error("Socket.IO server has not been initialized yet");
   }
   return io;
+}
+
+export function setMockIO(mockIo: any) {
+  global.ioServer = mockIo;
 }
 
 // Timer Management Helpers
@@ -311,11 +332,12 @@ export function startItemTimer(
 
     const msRemaining = currentTimer.timerExpiry - now;
     const secondsRemaining = Math.max(0, Math.ceil(msRemaining / 1000));
+    const io = global.ioServer;
 
     if (io) {
       io.to(room).emit("timer_updated", {
         auctionId,
-        itemId,
+        itemId: currentTimer.itemId,
         secondsRemaining,
         timerExpiry: new Date(currentTimer.timerExpiry).toISOString(),
       });
@@ -335,6 +357,7 @@ export function startItemTimer(
   });
 
   // Emit immediate initial timer tick
+  const io = global.ioServer;
   if (io) {
     io.to(room).emit("timer_updated", {
       auctionId,
@@ -353,6 +376,7 @@ export function extendItemTimer(auctionId: string, extensionSeconds: number): nu
   const msRemaining = currentTimer.timerExpiry - Date.now();
   const secondsRemaining = Math.max(0, Math.ceil(msRemaining / 1000));
   const room = `auction_${auctionId}`;
+  const io = global.ioServer;
 
   if (io) {
     io.to(room).emit("timer_updated", {
@@ -364,6 +388,64 @@ export function extendItemTimer(auctionId: string, extensionSeconds: number): nu
   }
 
   return secondsRemaining;
+}
+
+/**
+ * Authoritatively handles the bidding timer on every accepted bid:
+ * - If currently within the anti-snipe threshold (<= antiSnipeThreshold seconds), extends the timer by antiSnipeExtension seconds.
+ * - Otherwise (normal bid with > antiSnipeThreshold remaining), keeps the existing countdown running without resetting.
+ * - Broadcasts timer_updated immediately to all clients in the auction room with the authoritative timer state.
+ */
+export function handleBidTimer(
+  auctionId: string,
+  itemId: string,
+  timerDuration: number,
+  antiSnipeThreshold: number,
+  antiSnipeExtension: number,
+  onExpire?: () => void
+): { secondsRemaining: number; timerExpiry: string } {
+  const currentTimer = activeTimers.get(auctionId);
+  const now = Date.now();
+
+  if (currentTimer && currentTimer.itemId === itemId) {
+    const msRemaining = currentTimer.timerExpiry - now;
+    const remainingSeconds = Math.max(0, Math.ceil(msRemaining / 1000));
+
+    if (remainingSeconds <= antiSnipeThreshold) {
+      // Anti-snipe extension: add antiSnipeExtension seconds
+      currentTimer.timerExpiry = currentTimer.timerExpiry + antiSnipeExtension * 1000;
+    } else {
+      // Normal bid: keep the existing countdown running without resetting
+    }
+
+    const newMsRemaining = currentTimer.timerExpiry - now;
+    const newSecondsRemaining = Math.max(0, Math.ceil(newMsRemaining / 1000));
+    const timerExpiryIso = new Date(currentTimer.timerExpiry).toISOString();
+    const room = `auction_${auctionId}`;
+    const io = global.ioServer;
+
+    if (io) {
+      io.to(room).emit("timer_updated", {
+        auctionId,
+        itemId,
+        secondsRemaining: newSecondsRemaining,
+        timerExpiry: timerExpiryIso,
+      });
+    }
+
+    return {
+      secondsRemaining: newSecondsRemaining,
+      timerExpiry: timerExpiryIso,
+    };
+  } else {
+    // Start fresh timer for this item if not already running
+    startItemTimer(auctionId, itemId, timerDuration, onExpire);
+    const timerExpiryIso = new Date(now + timerDuration * 1000).toISOString();
+    return {
+      secondsRemaining: timerDuration,
+      timerExpiry: timerExpiryIso,
+    };
+  }
 }
 
 export function stopItemTimer(auctionId: string) {

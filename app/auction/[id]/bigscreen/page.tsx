@@ -100,7 +100,13 @@ export default function BigScreenBroadcastPage() {
           break;
 
         case "bid_placed":
-          setBids((prev) => [data.bid, ...prev]);
+          setBids((prev) => {
+            if (prev.some((b) => b.id === data.bid.id)) return prev;
+            return [data.bid, ...prev];
+          });
+          if (data.secondsRemaining !== undefined) {
+            setSecondsRemaining(data.secondsRemaining);
+          }
           soundEngine.playNewBid();
           break;
 

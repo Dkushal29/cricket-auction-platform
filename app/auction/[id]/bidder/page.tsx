@@ -145,8 +145,14 @@ export default function DedicatedBidderPage() {
             } else {
               soundEngine.playNewBid();
             }
+            if (prev.some((b) => b.id === data.bid.id)) {
+              return prev;
+            }
             return [data.bid, ...prev];
           });
+          if (data.secondsRemaining !== undefined) {
+            setSecondsRemaining(data.secondsRemaining);
+          }
           break;
         case "timer_updated":
           setSecondsRemaining(data.secondsRemaining);
