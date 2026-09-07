@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "start": "NODE_ENV=production tsx server.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

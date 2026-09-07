@@ -3,13 +3,37 @@ import { prisma } from "@/lib/prisma";
 import { requireAuctioneerOwnership } from "@/lib/auth";
 import ExcelJS from "exceljs";
 
+export interface ExportTeamPlayer {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  round: number;
+  soldAt: Date | string | null;
+}
+
+export interface ExportTeamSummary {
+  teamId: string;
+  teamName: string;
+  bidderName: string;
+  bidderEmail: string;
+  initialBudget: number;
+  totalSpent: number;
+  remainingBudget: number;
+  playersAcquired: number;
+  averagePurchase: number;
+  highestPurchase: number;
+  lowestPurchase: number;
+  players: ExportTeamPlayer[];
+}
+
 export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id: auctionId } = params;
-    const { user: authUser } = await requireAuctioneerOwnership(req, auctionId);
+    await requireAuctioneerOwnership(req, auctionId);
 
     const url = new URL(req.url);
     const format = (url.searchParams.get("format") || "csv").toLowerCase();
@@ -75,7 +99,7 @@ export async function GET(
     const totalAuctionValue = soldItems.reduce((sum, item) => sum + (item.winningPrice || 0), 0);
 
     // Participant summaries with reconciled budget invariants
-    const teamSummaries = auction.participants.map((p) => {
+    const teamSummaries: ExportTeamSummary[] = auction.participants.map((p) => {
       const teamItems = soldItems.filter((item) => item.winnerId === p.userId);
       const teamSpent = teamItems.reduce((sum, item) => sum + (item.winningPrice || 0), 0);
       const prices = teamItems.map((item) => item.winningPrice || 0);
@@ -149,7 +173,7 @@ export async function GET(
             item.winningPrice || 0,
             escapeCsv(winnerName),
             escapeCsv(teamName),
-            item.bids.length,
+            item.bids?.length ?? 0,
             `Round ${item.round ?? 1}`,
             item.id,
             item.soldAt ? item.soldAt.toISOString() : "N/A",
@@ -174,7 +198,7 @@ export async function GET(
             item.basePrice,
             round1Result,
             round2Result,
-            item.bids.length,
+            item.bids?.length ?? 0,
             item.status === "FINAL_UNSOLD" ? "FINAL UNSOLD" : "UNSOLD (POOL)",
             `Round ${item.round ?? 1}`,
             item.id,
@@ -324,7 +348,7 @@ export async function GET(
           winningBidderId: item.winnerId,
           winningTeam: participant?.teamName,
           winningTeamId: participant?.id,
-          bidsCount: item.bids.length,
+          bidsCount: item.bids?.length ?? 0,
           saleTimestamp: item.soldAt,
           auctionRound: item.round ?? 1,
         };
@@ -338,7 +362,7 @@ export async function GET(
           basePrice: item.basePrice,
           round1Result: "UNSOLD",
           reAuctionResult: item.status === "FINAL_UNSOLD" ? "FINAL UNSOLD" : "NOT RE-AUCTIONED",
-          bidsCount: item.bids.length,
+          bidsCount: item.bids?.length ?? 0,
           finalStatus: item.status,
           round: item.round ?? 1,
         })),
@@ -415,7 +439,7 @@ async function generateXlsxWorkbook(
   totalFinalUnsold: number,
   totalAuctionValue: number,
   soldItems: any[],
-  teamSummaries: any[]
+  teamSummaries: ExportTeamSummary[]
 ): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Cricket Auction Platform";
@@ -486,7 +510,7 @@ async function generateXlsxWorkbook(
       winningPrice: item.winningPrice || 0,
       winnerName: item.winner?.name || "N/A",
       teamName: participant?.teamName || "N/A",
-      bidsCount: item.bids?.length || 0,
+      bidsCount: item.bids?.length ?? 0,
       round: `Round ${item.round ?? 1}`,
       soldAt: item.soldAt ? new Date(item.soldAt).toISOString() : "N/A",
     });
@@ -514,7 +538,7 @@ async function generateXlsxWorkbook(
       basePrice: item.basePrice,
       r1: "UNSOLD",
       r2: item.status === "FINAL_UNSOLD" ? "FINAL UNSOLD" : "NOT RE-AUCTIONED",
-      bids: item.bids?.length || 0,
+      bids: item.bids?.length ?? 0,
       status: item.status === "FINAL_UNSOLD" ? "FINAL UNSOLD" : "UNSOLD (POOL)",
     });
   }
@@ -622,7 +646,7 @@ async function generateXlsxWorkbook(
   return Buffer.from(buffer);
 }
 
-function generatePrintableHtml(auction: any, totalAuctionValue: number, soldItems: any[], teamSummaries: any[]): string {
+function generatePrintableHtml(auction: any, totalAuctionValue: number, soldItems: any[], teamSummaries: ExportTeamSummary[]): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -715,8 +739,8 @@ function generatePrintableHtml(auction: any, totalAuctionValue: number, soldItem
                 ? '<tr><td colspan="4" style="color:#999;">No players acquired</td></tr>'
                 : t.players
                     .map(
-                      (p: any) =>
-                        `<tr><td><strong>${p.name}</strong></td><td>${p.category}</td><td class="brass">${formatInr(p.price)}</td><td>Round ${p.round}</td></tr>`
+                      (p) =>
+                        `<tr><td><strong>${escapeXml(p.name)}</strong></td><td>${escapeXml(p.category)}</td><td class="brass">${formatInr(p.price)}</td><td>Round ${p.round}</td></tr>`
                     )
                     .join("")
             }
