@@ -86,22 +86,45 @@ export async function POST(
           assertValidAuctionTransition(currentAuction.status as any, "LIVE");
         }
 
-        // Ensure pending items order is persisted; if created with orderIndex 0, randomize once
+        // Ensure pending items order is persisted with server-authoritative randomized order.
+        // For auctions that were not already randomized at creation (e.g. uninitialized DRAFT auctions),
+        // randomize them once now before activating the first lot.
         const pendingItems = currentAuction.items.filter((i) => i.status === "PENDING");
-        const needsOrdering =
-          pendingItems.length > 1 &&
-          pendingItems.every((i) => i.orderIndex === 0);
+        if (pendingItems.length > 1 && currentAuction.startedAt === null) {
+          const priorRandomizedLog = await tx.auditLog.findFirst({
+            where: {
+              auctionId,
+              action: "ORDER_RANDOMIZED",
+            },
+          });
 
-        if (needsOrdering) {
-          const shuffled = fisherYatesShuffle(pendingItems);
-          for (let idx = 0; idx < shuffled.length; idx++) {
-            await tx.item.update({
-              where: { id: shuffled[idx].id },
-              data: { orderIndex: idx + 1 },
+          const allZeroOrder = pendingItems.every((i) => i.orderIndex === 0);
+
+          // If never randomized at creation or if orderIndex was uninitialized, randomize once
+          if (!priorRandomizedLog || allZeroOrder) {
+            const shuffled = fisherYatesShuffle(pendingItems);
+            for (let idx = 0; idx < shuffled.length; idx++) {
+              await tx.item.update({
+                where: { id: shuffled[idx].id },
+                data: { orderIndex: idx + 1 },
+              });
+              shuffled[idx].orderIndex = idx + 1;
+            }
+            currentAuction.items.sort((a, b) => a.orderIndex - b.orderIndex);
+
+            await tx.auditLog.create({
+              data: {
+                auctionId,
+                userId: user.userId,
+                action: "ORDER_RANDOMIZED",
+                metadata: JSON.stringify({
+                  itemCount: shuffled.length,
+                  randomizedAt: new Date().toISOString(),
+                  method: "FISHER_YATES_AT_START",
+                }),
+              },
             });
-            shuffled[idx].orderIndex = idx + 1;
           }
-          currentAuction.items.sort((a, b) => a.orderIndex - b.orderIndex);
         }
 
         // Determine active item to activate based on persisted orderIndex

@@ -211,13 +211,12 @@ export default function CreateAuctionPage() {
               userEmail: "bidder2@csk.com",
             },
           ],
-          items: players.map((p, idx) => ({
+          items: players.map((p) => ({
             name: p.name,
             category: p.category,
             basePrice: p.basePrice,
             description: p.description,
             imageUrl: p.imageUrl,
-            orderIndex: idx + 1,
           })),
         }),
       });

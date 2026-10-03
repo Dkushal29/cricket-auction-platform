@@ -207,6 +207,19 @@ export async function POST(req: Request) {
               status: "PENDING",
             })),
           });
+
+          await tx.auditLog.create({
+            data: {
+              auctionId: auction.id,
+              userId: dbAuctioneer.id,
+              action: "ORDER_RANDOMIZED",
+              metadata: JSON.stringify({
+                itemCount: randomizedItems.length,
+                randomizedAt: new Date().toISOString(),
+                method: "FISHER_YATES_SERVER",
+              }),
+            },
+          });
         }
 
         // 5. Record Audit Log

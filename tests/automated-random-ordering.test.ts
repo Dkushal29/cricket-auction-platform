@@ -394,6 +394,122 @@ async function runAutomatedRandomOrderingTestSuite() {
     const processedIds = new Set(finalItems.map((i) => i.id));
     assert(processedIds.size === 10, "Every player appeared exactly once without duplicates");
 
+    // ----------------------------------------------------
+    // TEST 10: Exact User Scenario Regression Test (5 Players)
+    // Input: Travis Head, Jasprit Bumrah, Heinrich Klaasen, Andre Russell, Rashid Khan
+    // Verifies that passing client orderIndex does NOT determine the database orderIndex.
+    // ----------------------------------------------------
+    console.log("\nTEST 10: Regression Test - Exact User Scenario (5 Players)");
+    const exactUserFivePlayers = [
+      { name: "Travis Head", category: "Batsman", basePrice: 15000000, orderIndex: 1 },
+      { name: "Jasprit Bumrah", category: "Bowler", basePrice: 20000000, orderIndex: 2 },
+      { name: "Heinrich Klaasen", category: "Wicket-Keeper", basePrice: 15000000, orderIndex: 3 },
+      { name: "Andre Russell", category: "All-Rounder", basePrice: 15000000, orderIndex: 4 },
+      { name: "Rashid Khan", category: "All-Rounder", basePrice: 20000000, orderIndex: 5 },
+    ];
+
+    const inputNames = exactUserFivePlayers.map((p) => p.name);
+
+    // Create 3 independent auctions to test statistical randomization and prevent accidental orderIndex preservation
+    let sawPermutationDifferingFromInput = false;
+    let regressionAuctionId = "";
+
+    for (let trial = 1; trial <= 3; trial++) {
+      const trialReq = new Request("http://localhost/api/auctions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${auctioneerToken}`,
+        },
+        body: JSON.stringify({
+          name: `User Regression Auction Trial ${trial} - ${uniqueSuffix}`,
+          teams: [
+            { teamName: "RCB", initialBudget: 100000000, userId: bidderA.id },
+            { teamName: "CSK", initialBudget: 100000000, userId: bidderB.id },
+          ],
+          items: exactUserFivePlayers,
+        }),
+      });
+
+      const trialRes = await createAuction(trialReq);
+      assert(trialRes.status === 201, `Trial ${trial}: Auction created successfully`);
+      const trialData = await trialRes.json();
+      regressionAuctionId = trialData.auction.id;
+
+      const trialDbItems = await prisma.item.findMany({
+        where: { auctionId: regressionAuctionId },
+        orderBy: { orderIndex: "asc" },
+      });
+
+      assert(trialDbItems.length === 5, `Trial ${trial}: All 5 players persisted`);
+      const trialIndices = trialDbItems.map((i) => i.orderIndex);
+      assert(
+        JSON.stringify(trialIndices) === JSON.stringify([1, 2, 3, 4, 5]),
+        `Trial ${trial}: orderIndex values are strictly sequential [1, 2, 3, 4, 5]`
+      );
+
+      const trialNames = trialDbItems.map((i) => i.name);
+      const isIdenticalToInput = JSON.stringify(trialNames) === JSON.stringify(inputNames);
+      if (!isIdenticalToInput) {
+        sawPermutationDifferingFromInput = true;
+      }
+
+      // Check ORDER_RANDOMIZED audit log exists
+      const randomLog = await prisma.auditLog.findFirst({
+        where: { auctionId: regressionAuctionId, action: "ORDER_RANDOMIZED" },
+      });
+      assert(randomLog !== null, `Trial ${trial}: ORDER_RANDOMIZED logged in AuditLog`);
+    }
+
+    assert(
+      sawPermutationDifferingFromInput,
+      "CRITICAL: Backend did NOT preserve client orderIndex (order was randomized)"
+    );
+
+    // Verify starting this regression auction activates the randomized #1 player
+    const regParticipants = await prisma.auctionParticipant.findMany({
+      where: { auctionId: regressionAuctionId },
+    });
+    registerMockPresence(regressionAuctionId, {
+      socketId: "socket_bidder_a_reg",
+      userId: bidderA.id,
+      role: "BIDDER",
+      teamSlot: "A",
+      participantId: regParticipants[0].id,
+      auctionId: regressionAuctionId,
+    });
+    registerMockPresence(regressionAuctionId, {
+      socketId: "socket_bidder_b_reg",
+      userId: bidderB.id,
+      role: "BIDDER",
+      teamSlot: "B",
+      participantId: regParticipants[1].id,
+      auctionId: regressionAuctionId,
+    });
+
+    const startRegReq = new Request(`http://localhost/api/auctions/${regressionAuctionId}/start`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${auctioneerToken}`,
+      },
+    });
+
+    const startRegRes = await startAuction(startRegReq, { params: { id: regressionAuctionId } });
+    const startRegData = await startRegRes.json();
+    assert(startRegRes.status === 200, "Regression auction started successfully", startRegData.error);
+
+    const regAuctionAfterStart = await prisma.auction.findUnique({
+      where: { id: regressionAuctionId },
+      include: { items: { orderBy: { orderIndex: "asc" } } },
+    });
+
+    const firstActiveLot = regAuctionAfterStart?.items.find((i) => i.id === regAuctionAfterStart.activeItemId);
+    assert(
+      firstActiveLot !== undefined && firstActiveLot.orderIndex === 1,
+      `Active item on start is Lot #1 (${firstActiveLot?.name}) matching persisted randomized orderIndex`
+    );
+
     console.log("\n=================================================");
     console.log(`🏁 RANDOM ORDER TEST SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED`);
     console.log("=================================================");
