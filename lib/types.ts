@@ -112,6 +112,7 @@ export interface ClientAuction {
   season: string;
   bannerUrl?: string | null;
   status: AuctionStatus;
+  currentRound?: number;
   auctioneerId: string;
   minimumBidIncrement: number;
   timerDuration: number;

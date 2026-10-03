@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import { getIO, stopItemTimer } from "./socket-server";
 import { advanceAuctionPlayer } from "./auction-advancement";
+import { isTeamSquadLimitReached, calculateSquadLimit } from "./squad-limits";
 
 export interface FinalizeResult {
   status: "SOLD" | "UNSOLD" | "FINAL_UNSOLD" | "ALREADY_FINALIZED";
@@ -8,6 +9,9 @@ export interface FinalizeResult {
   transaction?: any;
   updatedParticipant?: any;
   auctionId: string;
+  squadCount?: number;
+  maxSquadSize?: number;
+  maxSquadLimit?: number;
 }
 
 /**
@@ -93,6 +97,22 @@ export async function finalizeOrUnsoldLot(
               throw new Error("PARTICIPANT_NOT_FOUND: Highest bidder is not an active participant in this auction");
             }
 
+            // Re-check squad limit atomically inside transaction (concurrency safety)
+            const currentWonCount = await tx.item.count({
+              where: {
+                auctionId: auction.id,
+                winnerId: highestBid.bidderId,
+                status: "SOLD",
+              },
+            });
+
+            if (isTeamSquadLimitReached(currentWonCount, auction.maxSquadSize)) {
+              throw new Error("TEAM_PLAYER_LIMIT_REACHED: Your team has reached the maximum squad limit for this auction.");
+            }
+
+            const updatedSquadCount = currentWonCount + 1;
+            const maxSquadLimit = calculateSquadLimit(auction.maxSquadSize);
+
             // Create Transaction record
             const transaction = await tx.transaction.create({
               data: {
@@ -161,6 +181,7 @@ export async function finalizeOrUnsoldLot(
                   winnerName: highestBid.bidder.name,
                   teamName: participant.teamName,
                   price: highestBid.amount,
+                  squadCount: updatedSquadCount,
                   finalizedBy: auctioneerUserId ? "MANUAL" : "AUTOMATIC_TIMER",
                 }),
               },
@@ -172,11 +193,14 @@ export async function finalizeOrUnsoldLot(
               transaction,
               updatedParticipant,
               auctionId: auction.id,
+              squadCount: updatedSquadCount,
+              maxSquadSize: auction.maxSquadSize,
+              maxSquadLimit,
             };
           } else {
-            // Case B: Item has 0 bids -> UNSOLD (round 1) or FINAL_UNSOLD (round 2)
-            const isRound2 = (item.round ?? 1) >= 2;
-            const newStatus = isRound2 ? "FINAL_UNSOLD" : "UNSOLD";
+            // Case B: Item has 0 bids -> UNSOLD (round 1 or 2) or FINAL_UNSOLD (round 3)
+            const isRound3OrMore = (item.round ?? 1) >= 3;
+            const newStatus = isRound3OrMore ? "FINAL_UNSOLD" : "UNSOLD";
 
             const unsoldItem = await tx.item.update({
               where: { id: item.id },
@@ -197,7 +221,7 @@ export async function finalizeOrUnsoldLot(
               data: {
                 auctionId: auction.id,
                 userId: auctioneerUserId || auction.auctioneerId,
-                action: isRound2 ? "ITEM_FINAL_UNSOLD" : "ITEM_UNSOLD",
+                action: isRound3OrMore ? "ITEM_FINAL_UNSOLD" : "ITEM_UNSOLD",
                 metadata: JSON.stringify({
                   itemId: item.id,
                   itemName: item.name,
@@ -209,7 +233,7 @@ export async function finalizeOrUnsoldLot(
             });
 
             return {
-              status: (isRound2 ? "FINAL_UNSOLD" : "UNSOLD") as "UNSOLD" | "FINAL_UNSOLD",
+              status: (isRound3OrMore ? "FINAL_UNSOLD" : "UNSOLD") as "UNSOLD" | "FINAL_UNSOLD",
               item: unsoldItem,
               auctionId: auction.id,
             };
@@ -233,6 +257,13 @@ export async function finalizeOrUnsoldLot(
           io.to(room).emit("player_sold", {
             auctionId: result.auctionId,
             item: result.item,
+            playerId: result.item.id,
+            amount: result.item.winningPrice,
+            winningTeam: result.updatedParticipant?.teamName,
+            round: result.item.round ?? 1,
+            updatedPurse: result.updatedParticipant?.remainingBudget,
+            squadCount: result.squadCount,
+            maxSquadSize: result.maxSquadSize,
             transaction: result.transaction,
             updatedParticipant: result.updatedParticipant,
           });
@@ -240,6 +271,17 @@ export async function finalizeOrUnsoldLot(
           io.to(room).emit("participant_updated", {
             participant: result.updatedParticipant,
           });
+
+          if (result.updatedParticipant && result.squadCount !== undefined) {
+            io.to(room).emit("squad_updated", {
+              auctionId: result.auctionId,
+              teamId: result.updatedParticipant.userId,
+              teamName: result.updatedParticipant.teamName,
+              squadCount: result.squadCount,
+              maxSquadSize: result.maxSquadSize,
+              squadLimit: result.maxSquadLimit,
+            });
+          }
         } catch (e) {}
       } else if (result.status === "FINAL_UNSOLD") {
         try {
@@ -249,10 +291,15 @@ export async function finalizeOrUnsoldLot(
           io.to(room).emit("player_final_unsold", {
             auctionId: result.auctionId,
             item: result.item,
+            playerId: result.item.id,
+            round: result.item.round ?? 1,
           });
           io.to(room).emit("player_unsold", {
             auctionId: result.auctionId,
             item: result.item,
+            playerId: result.item.id,
+            round: result.item.round ?? 1,
+            status: "FINAL_UNSOLD",
             isFinal: true,
           });
         } catch (e) {}
@@ -264,6 +311,9 @@ export async function finalizeOrUnsoldLot(
           io.to(room).emit("player_unsold", {
             auctionId: result.auctionId,
             item: result.item,
+            playerId: result.item.id,
+            round: result.item.round ?? 1,
+            status: "UNSOLD",
             isFinal: false,
           });
         } catch (e) {}

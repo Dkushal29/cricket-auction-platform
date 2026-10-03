@@ -70,6 +70,10 @@ class SoundEngine {
     osc.stop(ctx.currentTime + 0.35);
   }
 
+  public playNewHighestBid(): void {
+    this.playNewBid();
+  }
+
   /**
    * Urgent double-tone when a bidder has been outbid
    */

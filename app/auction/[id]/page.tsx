@@ -30,6 +30,13 @@ export default function AuctionArenaPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [recentFinalized, setRecentFinalized] = useState<{
+    item: ClientItem;
+    status: "SOLD" | "UNSOLD" | "FINAL_UNSOLD";
+    team?: string;
+    amount?: number;
+  } | null>(null);
+
   // Authoritative State Fetcher
   const fetchAuthoritativeState = useCallback(async () => {
     try {
@@ -90,11 +97,18 @@ export default function AuctionArenaPage() {
           addToast(`Auction status changed to ${data.status.toLowerCase()}`, "info");
           break;
 
+        case "auction_round_started":
+          setAuction((prev) => (prev ? { ...prev, currentRound: data.round } : null));
+          setRecentFinalized(null);
+          addToast(`ROUND ${data.round} STARTED (${data.eligiblePlayerCount} players eligible)`, "brass");
+          fetchAuthoritativeState();
+          break;
+
         case "re_auction_started":
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any, round: 2 } : i
+              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any, round: data.round || 2 } : i
             );
             return {
               ...prev,
@@ -103,13 +117,15 @@ export default function AuctionArenaPage() {
               items: updatedItems,
             };
           });
+          setRecentFinalized(null);
           setBids([]);
           setSecondsRemaining(15);
           soundEngine.playNewBid();
-          addToast(`ROUND 2 RE-AUCTION: ${data.item.name} is on stage!`, "brass");
+          addToast(`ROUND ${data.round || 2} RE-AUCTION: ${data.item.name} is on stage!`, "brass");
           break;
 
         case "player_started":
+          setRecentFinalized(null);
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
@@ -125,6 +141,10 @@ export default function AuctionArenaPage() {
           setBids([]);
           setSecondsRemaining(data.secondsRemaining || 15);
           addToast(`Lot #${data.item.orderIndex} ${data.item.name} now on spotlight`, "brass");
+          break;
+
+        case "new_highest_bid":
+          soundEngine.playNewHighestBid();
           break;
 
         case "bid_placed":
@@ -148,10 +168,17 @@ export default function AuctionArenaPage() {
           break;
 
         case "player_sold":
+          const soldItem = { ...data.item, status: "SOLD" as const };
+          setRecentFinalized({
+            item: soldItem,
+            status: "SOLD",
+            team: data.winningTeam || data.updatedParticipant?.teamName,
+            amount: data.amount || data.item?.winningPrice,
+          });
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? data.item : i
+              i.id === data.item.id ? soldItem : i
             );
             const updatedParticipants = prev.participants.map((p) =>
               p.id === data.updatedParticipant.id ? data.updatedParticipant : p
@@ -173,10 +200,15 @@ export default function AuctionArenaPage() {
           break;
 
         case "player_final_unsold":
+          const finalUnsoldItem = { ...data.item, status: "FINAL_UNSOLD" as const };
+          setRecentFinalized({
+            item: finalUnsoldItem,
+            status: "FINAL_UNSOLD",
+          });
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, status: "FINAL_UNSOLD" as any, round: 2 } : i
+              i.id === data.item.id ? finalUnsoldItem : i
             );
             return {
               ...prev,
@@ -191,11 +223,16 @@ export default function AuctionArenaPage() {
           break;
 
         case "player_unsold":
+          const finalStatus = data.isFinal || data.item?.status === "FINAL_UNSOLD" || data.status === "FINAL_UNSOLD" ? "FINAL_UNSOLD" : "UNSOLD";
+          const unsoldItem = { ...data.item, status: finalStatus as any };
+          setRecentFinalized({
+            item: unsoldItem,
+            status: finalStatus as any,
+          });
           setAuction((prev) => {
             if (!prev) return null;
-            const finalStatus = data.isFinal || data.item?.status === "FINAL_UNSOLD" ? "FINAL_UNSOLD" : "UNSOLD";
             const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, ...data.item, status: finalStatus as any } : i
+              i.id === data.item.id ? unsoldItem : i
             );
             return {
               ...prev,
@@ -206,10 +243,15 @@ export default function AuctionArenaPage() {
           });
           setSecondsRemaining(null);
           soundEngine.playUnsoldGavel();
-          addToast(`${data.item.name} passed unsold`, "error");
+          addToast(`${data.item.name} passed ${finalStatus === "FINAL_UNSOLD" ? "as FINAL UNSOLD" : "unsold"}`, "error");
+          break;
+
+        case "squad_updated":
+          fetchAuthoritativeState();
           break;
 
         case "player_undo_finalized":
+          setRecentFinalized(null);
           setAuction((prev) => {
             if (!prev) return null;
             const updatedItems = prev.items.map((i) =>
@@ -270,8 +312,10 @@ export default function AuctionArenaPage() {
     );
   }
 
-  const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || null;
   const highestBid = bids[0];
+  const activeItem = auction.items.find((i) => i.id === auction.activeItemId) || recentFinalized?.item || null;
+  const displayHighestBidAmount = recentFinalized?.amount !== undefined ? recentFinalized.amount : (highestBid?.amount || 0);
+  const displayHighestBidderTeam = recentFinalized?.team || highestBid?.bidder?.participant?.teamName || (highestBid as any)?.teamName;
   const userRole = user?.role || "SPECTATOR";
 
   // Participants
@@ -341,6 +385,7 @@ export default function AuctionArenaPage() {
                 items={auction.items}
                 variant="team-a"
                 isSelf={user?.id === teamA?.userId}
+                maxSquadSize={auction.maxSquadSize}
               />
             </div>
 
@@ -348,9 +393,9 @@ export default function AuctionArenaPage() {
             <div className="lg:col-span-6 space-y-4">
               <ItemSpotlight
                 item={activeItem}
-                currentHighestBid={highestBid?.amount || 0}
+                currentHighestBid={displayHighestBidAmount}
                 highestBidderName={highestBid?.bidder?.name}
-                highestBidderTeam={highestBid?.bidder?.participant?.teamName || (highestBid as any)?.teamName}
+                highestBidderTeam={displayHighestBidderTeam}
                 secondsRemaining={secondsRemaining}
                 timerDuration={15}
                 isPaused={auction.status === "PAUSED"}
@@ -384,6 +429,7 @@ export default function AuctionArenaPage() {
                 items={auction.items}
                 variant="team-b"
                 isSelf={user?.id === teamB?.userId}
+                maxSquadSize={auction.maxSquadSize}
               />
             </div>
 
@@ -394,12 +440,14 @@ export default function AuctionArenaPage() {
                 items={auction.items}
                 variant="team-a"
                 isSelf={user?.id === teamA?.userId}
+                maxSquadSize={auction.maxSquadSize}
               />
               <TeamRail
                 participant={teamB}
                 items={auction.items}
                 variant="team-b"
                 isSelf={user?.id === teamB?.userId}
+                maxSquadSize={auction.maxSquadSize}
               />
             </div>
           </div>

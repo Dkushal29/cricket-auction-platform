@@ -4,6 +4,7 @@ import { extractCallerIdentity } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getIO, handleBidTimer } from "@/lib/socket-server";
+import { isTeamSquadLimitReached, calculateSquadLimit } from "@/lib/squad-limits";
 
 const placeBidSchema = z.object({
   amount: z.number().int().positive(),
@@ -154,11 +155,23 @@ export async function POST(
             bidderUserId = caller.user.userId;
           }
 
-          // 5. Validate Budget
+          // 5. Validate Budget & Squad Limit
           if (amount > participant.remainingBudget) {
             throw new Error(
               `INSUFFICIENT_BUDGET: Bid amount ₹${amount.toLocaleString("en-IN")} exceeds your remaining purse of ₹${participant.remainingBudget.toLocaleString("en-IN")}`
             );
+          }
+
+          const wonItemsCount = await tx.item.count({
+            where: {
+              auctionId: auction.id,
+              winnerId: bidderUserId,
+              status: "SOLD",
+            },
+          });
+
+          if (isTeamSquadLimitReached(wonItemsCount, auction.maxSquadSize)) {
+            throw new Error("TEAM_PLAYER_LIMIT_REACHED: Your team has reached the maximum squad limit for this auction.");
           }
 
           // 6. Atomic Touch/Update on the active Item document to establish write serialization
@@ -272,6 +285,18 @@ export async function POST(
       };
 
       io.to(`auction_${result.auction.id}`).emit("bid_placed", payload as any);
+      io.to(`auction_${result.auction.id}`).emit("new_highest_bid", {
+        auctionId: result.auction.id,
+        itemId: result.item.id,
+        playerId: result.item.id,
+        bidAmount: result.bid.amount,
+        amount: result.bid.amount,
+        bidder: currentHolder,
+        team: result.participant.teamName,
+        teamName: result.participant.teamName,
+        timestamp: result.bid.timestamp.toISOString(),
+      });
+      io.to(`auction_${result.auction.id}`).emit("bid_updated", payload as any);
     } catch (e) {}
 
     return NextResponse.json({

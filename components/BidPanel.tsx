@@ -32,6 +32,15 @@ export function BidPanel({
   const isBidder = user?.role === "BIDDER" || !!participant;
   const minIncrement = auction.minimumBidIncrement || 500000;
 
+  // Squad limit calculation: Floor(N / 2)
+  const maxSquadSize = auction.maxSquadSize || 25;
+  const squadLimit = Math.floor(maxSquadSize / 2);
+  const myUserId = participant?.userId || user?.id;
+  const wonItemsCount = (auction.items || []).filter(
+    (i) => i.winnerId === myUserId && i.status === "SOLD"
+  ).length;
+  const isSquadLimitReached = wonItemsCount >= squadLimit;
+
   // Minimum required bid to be valid
   const minRequiredBid = currentHighestBid > 0
     ? currentHighestBid + minIncrement
@@ -52,6 +61,7 @@ export function BidPanel({
     isAuctionLive &&
     isItemActive &&
     isBidder &&
+    !isSquadLimitReached &&
     hasSufficientBudget &&
     selectedBidAmount >= minRequiredBid &&
     !loading;
@@ -104,7 +114,7 @@ export function BidPanel({
   return (
     <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-5 space-y-4 shadow-xl">
       {/* Header Info */}
-      <div className="flex items-center justify-between border-b border-[#202B38] pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#202B38] pb-3 gap-2">
         <div>
           <span className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
             Bidding Terminal
@@ -114,17 +124,38 @@ export function BidPanel({
           </span>
         </div>
 
-        {isCurrentLeader ? (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-[#28D17C]/15 border border-[#28D17C]/40 text-[12px] font-bold text-[#28D17C]">
-            <ShieldCheck className="w-4 h-4" />
-            <span>YOU ARE LEADING</span>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Squad Count: e.g. Squad: 4 / 6 */}
+          <div className="text-[12px] text-[#8B98A8] bg-[#070B12] px-2.5 py-1 rounded-[3px] border border-[#202B38]">
+            Squad:{" "}
+            <strong
+              className={`font-hero tabular-nums text-[14px] ${
+                isSquadLimitReached ? "text-[#FF5C5C]" : "text-[#E5AE3F]"
+              }`}
+            >
+              {wonItemsCount} / {squadLimit}
+            </strong>
           </div>
-        ) : (
-          <div className="text-[12px] text-[#8B98A8]">
-            Purse: <strong className="text-[#E5AE3F] font-hero tabular-nums">{formatINR(remainingBudget)}</strong>
-          </div>
-        )}
+
+          {isCurrentLeader ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-[3px] bg-[#28D17C]/15 border border-[#28D17C]/40 text-[12px] font-bold text-[#28D17C]">
+              <ShieldCheck className="w-4 h-4" />
+              <span>YOU ARE LEADING</span>
+            </div>
+          ) : (
+            <div className="text-[12px] text-[#8B98A8]">
+              Purse: <strong className="text-[#E5AE3F] font-hero tabular-nums">{formatINR(remainingBudget)}</strong>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Squad Limit Warning Banner */}
+      {isSquadLimitReached && (
+        <div className="p-3 rounded-[3px] bg-[#FF5C5C]/10 border border-[#FF5C5C]/40 text-[#FF5C5C] text-[12px] font-medium flex items-center gap-2">
+          <span>⚠️ Your team has reached the maximum squad limit of {squadLimit} players for this auction. Bidding is disabled for your team.</span>
+        </div>
+      )}
 
       {/* Large Quick Bidding Controls: [ +₹10L ] [ +₹25L ] [ +₹50L ] */}
       <div>
@@ -134,7 +165,7 @@ export function BidPanel({
         <div className="grid grid-cols-3 gap-2.5">
           {increments.map((inc) => {
             const calculatedBid = (currentHighestBid > 0 ? currentHighestBid : item?.basePrice || 0) + inc;
-            const disabled = !isAuctionLive || !isItemActive || remainingBudget < calculatedBid || loading;
+            const disabled = !isAuctionLive || !isItemActive || isSquadLimitReached || remainingBudget < calculatedBid || loading;
 
             return (
               <button
@@ -179,6 +210,8 @@ export function BidPanel({
             <Loader2 className="w-4 h-4 animate-spin" />
             <span>Transmitting Bid...</span>
           </>
+        ) : isSquadLimitReached ? (
+          `Squad Limit Reached (${wonItemsCount}/${squadLimit})`
         ) : !isAuctionLive ? (
           "Auction Paused"
         ) : !isItemActive ? (
@@ -204,9 +237,54 @@ export function BidPanel({
           placeholder={`Min ${formatINR(minRequiredBid)}`}
           value={customAmount}
           onChange={(e) => setCustomAmount(e.target.value)}
-          disabled={!isAuctionLive || !isItemActive || loading}
+          disabled={!isAuctionLive || !isItemActive || isSquadLimitReached || loading}
           className="flex-1 px-3 py-1.5 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] font-hero text-[15px] tabular-nums focus:outline-none focus:border-[#E5AE3F]"
         />
+      </div>
+
+      {/* Mobile Sticky Bottom Bid Bar */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0D131C]/95 border-t border-[#202B38] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md shadow-2xl">
+        <div className="flex items-center justify-between mb-2 text-[12px]">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#8B98A8]">Current:</span>
+            <span className="font-hero font-bold text-[#E5AE3F] tabular-nums text-[14px]">
+              {currentHighestBid > 0 ? formatINR(currentHighestBid) : "₹0"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#8B98A8]">Next:</span>
+            <span className="font-hero font-bold text-[#F5F7FA] tabular-nums text-[14px]">
+              {formatINR(minRequiredBid)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[#8B98A8]">Squad:</span>
+            <span className={`font-hero font-bold tabular-nums ${isSquadLimitReached ? "text-[#FF5C5C]" : "text-[#E5AE3F]"}`}>
+              {wonItemsCount}/{squadLimit}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handlePlaceBid(selectedBidAmount)}
+          disabled={!canBid}
+          className={`w-full min-h-[48px] rounded-[4px] font-bold text-[15px] tracking-wide uppercase transition-all flex items-center justify-center gap-2 select-none shadow-lg ${
+            canBid
+              ? "bg-[#E5AE3F] text-[#070B12] active:scale-[0.98] cursor-pointer"
+              : "bg-[#121A24] border border-[#202B38] text-[#8B98A8] cursor-not-allowed"
+          }`}
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isSquadLimitReached ? (
+            `Squad Full (${wonItemsCount}/${squadLimit})`
+          ) : !isItemActive ? (
+            "Waiting for Player"
+          ) : (
+            `BID ${formatExactINR(selectedBidAmount)}`
+          )}
+        </button>
       </div>
     </div>
   );

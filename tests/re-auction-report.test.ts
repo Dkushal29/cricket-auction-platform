@@ -432,12 +432,35 @@ async function runReAuctionReportTestSuite() {
       `Status: ${startReAuctionRes3.status}`
     );
 
-    // Item 3 has 0 bids in Round 2 -> FINAL_UNSOLD
+    // Item 3 has 0 bids in Round 2 -> UNSOLD (eligible for Round 3)
     const finalizeReAuction3 = await finalizeOrUnsoldLot(auction.id, item3.id, auctioneer.id);
     assert(
-      finalizeReAuction3.status === "FINAL_UNSOLD" && finalizeReAuction3.item.status === "FINAL_UNSOLD",
-      "24. Second no-bid player becomes FINAL_UNSOLD",
+      finalizeReAuction3.status === "UNSOLD" && finalizeReAuction3.item.status === "UNSOLD",
+      "24a. Second no-bid player becomes UNSOLD in Round 2",
       `Status: ${finalizeReAuction3.status}, itemStatus: ${finalizeReAuction3.item.status}`
+    );
+
+    // Start Round 3 for Item 3
+    const startReAuctionResRound3 = await startReAuction(
+      new Request(`http://localhost/api/auctions/${auction.id}/re-auction`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${auctioneerToken}` },
+      }),
+      { params: { id: auction.id } }
+    );
+    const startReAuctionDataRound3 = await startReAuctionResRound3.json();
+    assert(
+      startReAuctionResRound3.status === 200 && startReAuctionDataRound3.item.id === item3.id && startReAuctionDataRound3.round === 3,
+      "24b. Item 3 enters Round 3",
+      `Status: ${startReAuctionResRound3.status}`
+    );
+
+    // Item 3 has 0 bids in Round 3 -> FINAL_UNSOLD
+    const finalizeReAuctionRound3 = await finalizeOrUnsoldLot(auction.id, item3.id, auctioneer.id);
+    assert(
+      finalizeReAuctionRound3.status === "FINAL_UNSOLD" && finalizeReAuctionRound3.item.status === "FINAL_UNSOLD",
+      "24. Second no-bid player becomes FINAL_UNSOLD",
+      `Status: ${finalizeReAuctionRound3.status}, itemStatus: ${finalizeReAuctionRound3.item.status}`
     );
 
     // Prevent activating FINAL_UNSOLD item (No infinite loop)

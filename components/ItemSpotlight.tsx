@@ -26,19 +26,25 @@ export function ItemSpotlight({
   isPaused,
 }: ItemSpotlightProps) {
   const [snapAnimate, setSnapAnimate] = useState(false);
+  const [showNewHighestBid, setShowNewHighestBid] = useState(false);
   const isSold = item?.status === "SOLD";
   const isUnsold = item?.status === "UNSOLD";
   const isFinalUnsold = item?.status === "FINAL_UNSOLD";
-  const isRound2 = (item?.round ?? 1) >= 2;
+  const currentRound = item?.round ?? 1;
 
-  // Trigger scale-pulse snap animation on bid update
+  // Trigger scale-pulse snap animation and prominent announcement on bid update
   useEffect(() => {
-    if (currentHighestBid > 0) {
+    if (currentHighestBid > 0 && !isSold) {
       setSnapAnimate(true);
-      const timer = setTimeout(() => setSnapAnimate(false), 240);
-      return () => clearTimeout(timer);
+      setShowNewHighestBid(true);
+      const snapTimer = setTimeout(() => setSnapAnimate(false), 240);
+      const bannerTimer = setTimeout(() => setShowNewHighestBid(false), 1200);
+      return () => {
+        clearTimeout(snapTimer);
+        clearTimeout(bannerTimer);
+      };
     }
-  }, [currentHighestBid]);
+  }, [currentHighestBid, isSold]);
 
   if (!item) {
     return (
@@ -60,7 +66,58 @@ export function ItemSpotlight({
   const isFinalizing = secondsRemaining === 0;
 
   return (
-    <div className={`bg-[#0D131C] border border-[#202B38] rounded-[4px] relative overflow-hidden flex flex-col justify-between ${isSold ? "border-[#E5AE3F] shadow-[0_0_30px_rgba(229,174,63,0.18)]" : ""}`}>
+    <div className={`bg-[#0D131C] border border-[#202B38] rounded-[4px] relative overflow-hidden flex flex-col justify-between ${isSold ? "border-[#C7A046] shadow-[0_0_30px_rgba(199,160,70,0.25)]" : ""}`}>
+      {/* Prominent Real-time NEW HIGHEST BID Announcement Banner */}
+      {showNewHighestBid && (
+        <div className="absolute inset-x-0 top-14 z-30 flex justify-center pointer-events-none px-4 transition-all duration-300">
+          <div className="bg-[#10151A]/95 border-2 border-[#C7A046] shadow-[0_0_25px_rgba(199,160,70,0.4)] px-6 py-2.5 rounded-[4px] text-center max-w-md w-full backdrop-blur-md animate-bounce-short">
+            <div className="text-[11px] font-bold tracking-widest text-[#C7A046] uppercase">
+              NEW HIGHEST BID
+            </div>
+            <div className="font-hero text-[30px] sm:text-[38px] font-black text-[#EDEAE1] tabular-nums leading-tight">
+              {formatExactINR(currentHighestBid)}
+            </div>
+            <div className="text-[13px] font-bold text-[#C7A046] truncate">
+              {highestBidderTeam || highestBidderName || "Leading Team"}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prominent SOLD Full Overlay Banner */}
+      {isSold && (
+        <div className="absolute inset-0 z-40 bg-[#10151A]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center border-2 border-[#C7A046]">
+          <span className="text-[12px] font-bold uppercase tracking-widest text-[#C7A046] bg-[#C7A046]/10 px-3 py-1 rounded-[2px] border border-[#C7A046]/30 mb-2">
+            ROUND {currentRound} SOLD
+          </span>
+          <span className="font-hero text-[60px] sm:text-[84px] font-black text-[#C7A046] tracking-wider uppercase leading-none drop-shadow-[0_0_25px_rgba(199,160,70,0.5)]">
+            SOLD
+          </span>
+          <span className="text-[18px] sm:text-[22px] font-bold text-[#EDEAE1] mt-2">
+            {highestBidderTeam || highestBidderName || "Winning Franchise"}
+          </span>
+          <span className="font-hero text-[32px] sm:text-[42px] font-black text-[#C7A046] mt-0.5 tabular-nums">
+            {formatExactINR(currentHighestBid || item.winningPrice || 0)}
+          </span>
+        </div>
+      )}
+
+      {/* Prominent UNSOLD / FINAL_UNSOLD Full Overlay Banner */}
+      {(isUnsold || isFinalUnsold) && (
+        <div className="absolute inset-0 z-40 bg-[#10151A]/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center border-2 border-[#B85C38]">
+          <span className="text-[12px] font-bold uppercase tracking-widest text-[#8B939A] bg-[#1B2229] px-3 py-1 rounded-[2px] border border-[#2B343C] mb-2">
+            LOT CLOSED
+          </span>
+          <span className="font-hero text-[48px] sm:text-[68px] font-black text-[#EDEAE1] tracking-wider uppercase leading-none">
+            {isFinalUnsold ? "FINAL UNSOLD" : `UNSOLD — ROUND ${currentRound}`}
+          </span>
+          <span className="text-[14px] text-[#8B939A] mt-2 max-w-sm">
+            {isFinalUnsold
+              ? "All 3 rounds concluded. Player permanently passed out."
+              : `Eligible for Round ${currentRound + 1} re-auction.`}
+          </span>
+        </div>
+      )}
       {/* Top Meta Bar */}
       <div className="p-4 sm:p-4.5 border-b border-[#202B38] flex items-center justify-between gap-3 bg-[#121A24]">
         <div className="flex items-center gap-3">
@@ -70,9 +127,9 @@ export function ItemSpotlight({
           <span className="text-[13px] font-bold text-[#F5F7FA]">
             {item.category}
           </span>
-          {isRound2 ? (
+          {currentRound > 1 ? (
             <span className="px-2 py-0.5 rounded-[2px] bg-[#E5AE3F]/15 border border-[#E5AE3F]/40 text-[11px] font-bold text-[#E5AE3F]">
-              ROUND 2 RE-AUCTION
+              ROUND {currentRound} RE-AUCTION
             </span>
           ) : (
             <span className="px-2 py-0.5 rounded-[2px] bg-[#070B12] border border-[#202B38] text-[11px] font-medium text-[#8B98A8]">

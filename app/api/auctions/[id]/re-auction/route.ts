@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuctioneerOwnership } from "@/lib/auth";
-import { getIO, startItemTimer } from "@/lib/socket-server";
+import { getIO } from "@/lib/socket-server";
+import { transitionToNextRound, getAuctionRoundStatus } from "@/lib/auction-rounds";
+import { advanceAuctionPlayer } from "@/lib/auction-advancement";
 
 export async function POST(
   req: Request,
@@ -32,92 +34,89 @@ export async function POST(
       );
     }
 
-    // Find the first UNSOLD item from Round 1
-    const nextUnsoldItem = await prisma.item.findFirst({
-      where: {
-        auctionId: auction.id,
-        status: "UNSOLD",
-        round: 1,
-      },
-      orderBy: { orderIndex: "asc" },
-    });
+    let body: any = null;
+    try {
+      body = await req.json();
+    } catch {
+      // Empty or non-JSON body is valid
+    }
 
-    if (!nextUnsoldItem) {
+    const currentRound = auction.currentRound || 1;
+
+    // Check if there are already PENDING items in the current re-auction round (Round 2 or 3)
+    if (currentRound >= 2) {
+      const pendingItem = await prisma.item.findFirst({
+        where: {
+          auctionId: auction.id,
+          status: "PENDING",
+          round: currentRound,
+        },
+        orderBy: { orderIndex: "asc" },
+      });
+
+      if (pendingItem) {
+        const advanceResult = await advanceAuctionPlayer(auction.id, {
+          auctioneerUserId: user.userId,
+        });
+
+        const remainingPending = await prisma.item.count({
+          where: { auctionId: auction.id, status: "PENDING", round: currentRound },
+        });
+
+        return NextResponse.json({
+          success: true,
+          item: advanceResult.item,
+          auction: advanceResult.auction,
+          round: advanceResult.item?.round ?? currentRound,
+          remainingUnsoldInPool: remainingPending,
+        });
+      }
+    }
+
+    // Otherwise determine target round to transition to
+    let targetRound: 2 | 3 = 2;
+    if (body?.round === 2 || body?.round === 3) {
+      targetRound = body.round;
+    } else {
+      const curRound = auction.currentRound || 1;
+      targetRound = (curRound + 1) as 2 | 3;
+    }
+
+    if (targetRound > 3) {
       return NextResponse.json(
-        { error: "No eligible first-round unsold players available for re-auction." },
+        { error: "MAX_ROUNDS_REACHED: Round 3 is the final round. No further rounds allowed." },
         { status: 400 }
       );
     }
 
-    // Count how many total unsold players are in the re-auction pool
-    const totalUnsoldCount = await prisma.item.count({
-      where: {
-        auctionId: auction.id,
-        status: "UNSOLD",
-        round: 1,
-      },
-    });
+    const roundTransition = await transitionToNextRound(auction.id, targetRound, user.userId);
 
-    // Activate item for Round 2
-    const [updatedItem, updatedAuction] = await prisma.$transaction([
-      prisma.item.update({
-        where: { id: nextUnsoldItem.id },
-        data: {
-          status: "ACTIVE",
-          round: 2,
-        },
-      }),
-      prisma.auction.update({
-        where: { id: auction.id },
-        data: { activeItemId: nextUnsoldItem.id },
-      }),
-    ]);
-
-    await prisma.auditLog.create({
-      data: {
-        auctionId: auction.id,
-        userId: user.userId,
-        action: "RE_AUCTION_STARTED",
-        metadata: JSON.stringify({
-          itemId: updatedItem.id,
-          itemName: updatedItem.name,
-          round: 2,
-          remainingUnsoldInPool: totalUnsoldCount - 1,
-        }),
-      },
-    });
-
-    // Start 15s rolling countdown timer
-    const duration = 15;
-    const expiryDate = new Date(Date.now() + duration * 1000);
-
+    // Also emit legacy re_auction_started event for backwards-compatible listeners
     try {
-      startItemTimer(auction.id, updatedItem.id, duration);
-
       const io = getIO();
       const room = `auction_${auction.id}`;
-
       io.to(room).emit("re_auction_started", {
         auctionId: auction.id,
-        item: updatedItem as any,
-        round: 2,
-        remainingUnsoldCount: totalUnsoldCount - 1,
-      });
-
-      io.to(room).emit("player_started", {
-        auctionId: auction.id,
-        item: updatedItem as any,
-        secondsRemaining: duration,
-        timerExpiry: expiryDate.toISOString(),
+        item: roundTransition.activatedItem,
+        round: targetRound,
+        remainingUnsoldCount: roundTransition.eligibleCount - 1,
       });
     } catch (e) {}
 
+    const remainingPending = await prisma.item.count({
+      where: { auctionId: auction.id, status: "PENDING" },
+    });
+
+    const updatedAuction = await prisma.auction.findUnique({
+      where: { id: auction.id },
+    });
+
     return NextResponse.json({
       success: true,
-      item: updatedItem,
+      item: roundTransition.activatedItem,
       auction: updatedAuction,
-      round: 2,
-      remainingUnsoldInPool: totalUnsoldCount - 1,
+      round: targetRound,
+      remainingUnsoldInPool: remainingPending,
     });
   } catch (error: any) {
     const status = error.message?.startsWith("UNAUTHORIZED")

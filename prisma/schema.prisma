@@ -36,6 +36,7 @@ model Auction {
   season              String               @default("2026")
   bannerUrl           String?
   status              String               @default("DRAFT") // DRAFT, READY, LIVE, PAUSED, COMPLETED, CANCELLED
+  currentRound        Int                  @default(1)      // 1, 2, or 3
   auctioneerId        String               @db.ObjectId
   minimumBidIncrement Int                  @default(500000) // In INR
   timerDuration       Int                  @default(30)     // In seconds

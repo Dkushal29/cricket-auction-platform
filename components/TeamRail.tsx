@@ -9,6 +9,7 @@ interface TeamRailProps {
   items: ClientItem[];
   variant: "team-a" | "team-b";
   isSelf?: boolean;
+  maxSquadSize?: number;
 }
 
 export function TeamRail({
@@ -16,6 +17,7 @@ export function TeamRail({
   items,
   variant,
   isSelf,
+  maxSquadSize,
 }: TeamRailProps) {
   if (!participant) {
     return (
@@ -27,6 +29,8 @@ export function TeamRail({
 
   const teamColor = variant === "team-a" ? "#3E7CB1" : "#B85C38";
   const wonItems = items.filter((i) => i.winnerId === participant.userId && i.status === "SOLD");
+  const squadLimit = maxSquadSize ? Math.floor(maxSquadSize / 2) : undefined;
+  const isFull = squadLimit !== undefined && wonItems.length >= squadLimit;
 
   const initialBudget = participant.initialBudget || 1;
   const remainingBudget = Math.max(0, participant.remainingBudget);
@@ -97,7 +101,14 @@ export function TeamRail({
       {/* Compact Acquired Squad List */}
       <div className="p-3.5 flex-1 flex flex-col">
         <div className="flex items-center justify-between text-[12px] text-[#8B98A8] mb-2 font-medium">
-          <span>Acquired ({wonItems.length})</span>
+          <span className="flex items-center gap-1.5">
+            <span>Squad ({wonItems.length}{squadLimit ? `/${squadLimit}` : ""})</span>
+            {isFull && (
+              <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 bg-[#B85C38]/20 text-[#B85C38] rounded-[2px] border border-[#B85C38]/40">
+                Full
+              </span>
+            )}
+          </span>
           <span>Spent: {formatINR(participant.totalSpent)}</span>
         </div>
 

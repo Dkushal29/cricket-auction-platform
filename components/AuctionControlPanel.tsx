@@ -61,13 +61,24 @@ export function AuctionControlPanel({
   const isLive = auction.status === "LIVE";
   const isPaused = auction.status === "PAUSED";
   const isTerminal = auction.status === "COMPLETED" || auction.status === "CANCELLED";
+  const currentRound = auction.currentRound || 1;
   const unsoldRound1Items = auction.items.filter(
     (i) => i.status === "UNSOLD" && (i.round ?? 1) === 1
+  );
+  const unsoldRound2Items = auction.items.filter(
+    (i) => i.status === "UNSOLD" && (i.round ?? 1) === 2
   );
   const finalUnsoldItems = auction.items.filter(
     (i) => i.status === "FINAL_UNSOLD"
   );
   const pendingItems = auction.items.filter((i) => i.status === "PENDING");
+  const maxSquadSize = auction.maxSquadSize || 25;
+  const squadLimit = Math.floor(maxSquadSize / 2);
+
+  const isRound1Complete = currentRound === 1 && isLive && !activeItem && pendingItems.length === 0;
+  const isRound2Complete = currentRound === 2 && isLive && !activeItem && pendingItems.length === 0;
+  const isRound3Complete = currentRound === 3 && isLive && !activeItem && pendingItems.length === 0;
+
   const isOwnerAuctioneer = Boolean(
     user?.role === "AUCTIONEER" && user.id === auction.auctioneerId
   );
@@ -288,30 +299,132 @@ export function AuctionControlPanel({
         )}
       </div>
 
-      {/* Re-Auction Pool Banner */}
-      {unsoldRound1Items.length > 0 && isLive && !activeItem && (
+      {/* Real-time Team Squad Overview for Auctioneer */}
+      <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B939A]">
+            Team Squad Rosters (Max {squadLimit} players: ⌊N/2⌋)
+          </span>
+          <span className="text-[11px] text-[#8B939A]">
+            Configured N = {maxSquadSize}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+          {auction.participants.map((p) => {
+            const wonCount = auction.items.filter(
+              (i) => i.winnerId === p.userId && i.status === "SOLD"
+            ).length;
+            const isFull = wonCount >= squadLimit;
+            return (
+              <div
+                key={p.id}
+                className={`p-2.5 rounded-[3px] border ${
+                  isFull
+                    ? "bg-[#B85C38]/15 border-[#B85C38]"
+                    : "bg-[#10151A] border-[#2B343C]"
+                }`}
+              >
+                <div className="text-[13px] font-bold text-[#EDEAE1] truncate">
+                  {p.teamName}
+                </div>
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-[11px] text-[#8B939A]">
+                    {isFull ? "Roster Full" : "Acquired"}
+                  </span>
+                  <span
+                    className={`font-hero text-[16px] font-bold tabular-nums ${
+                      isFull ? "text-[#B85C38]" : "text-[#C7A046]"
+                    }`}
+                  >
+                    {wonCount} / {squadLimit}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Round 1 Complete -> Start Round 2 Banner */}
+      {isRound1Complete && unsoldRound1Items.length > 0 && (
         <div className="bg-[#1B2229] border border-[#C7A046]/40 rounded-[4px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-[#1B2229] to-[#252C34]">
           <div>
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded-[2px] bg-[#C7A046]/20 text-[#C7A046] text-[11px] font-bold uppercase tracking-wider">
-                Re-Auction Ready
+                ROUND 1 COMPLETE
               </span>
               <h3 className="text-[15px] font-bold text-[#EDEAE1]">
-                Unsold Players ({unsoldRound1Items.length} waiting for re-auction)
+                {unsoldRound1Items.length} Players Available for Round 2
               </h3>
             </div>
             <p className="text-[12px] text-[#8B939A] mt-1">
-              Players unsold from Round 1 get one final opportunity in Round 2.
+              Unsold players will be re-auctioned in their original randomized order sequence.
             </p>
           </div>
           <button
             type="button"
-            onClick={handleStartReAuction}
+            onClick={() => executeApi(`/api/auctions/${auction.id}/re-auction`, "POST", { round: 2 })}
             disabled={loading}
             className="px-4 py-2 rounded-[2px] bg-[#C7A046] text-[#10151A] font-bold text-[13px] hover:brightness-110 flex items-center gap-1.5 shrink-0"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Start Re-auction</span>
+            <span>Start Round 2</span>
+          </button>
+        </div>
+      )}
+
+      {/* Round 2 Complete -> Start Round 3 Banner */}
+      {isRound2Complete && unsoldRound2Items.length > 0 && (
+        <div className="bg-[#1B2229] border border-[#C7A046]/40 rounded-[4px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-[#1B2229] to-[#252C34]">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-[2px] bg-[#C7A046]/20 text-[#C7A046] text-[11px] font-bold uppercase tracking-wider">
+                ROUND 2 COMPLETE
+              </span>
+              <h3 className="text-[15px] font-bold text-[#EDEAE1]">
+                {unsoldRound2Items.length} Players Available for Round 3 (Final Round)
+              </h3>
+            </div>
+            <p className="text-[12px] text-[#8B939A] mt-1">
+              Final opportunity. Any player unsold after Round 3 becomes permanently FINAL_UNSOLD.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => executeApi(`/api/auctions/${auction.id}/re-auction`, "POST", { round: 3 })}
+            disabled={loading}
+            className="px-4 py-2 rounded-[2px] bg-[#C7A046] text-[#10151A] font-bold text-[13px] hover:brightness-110 flex items-center gap-1.5 shrink-0"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>Start Round 3</span>
+          </button>
+        </div>
+      )}
+
+      {/* Round 3 Complete Banner */}
+      {isRound3Complete && (
+        <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-[2px] bg-[#B85C38]/20 text-[#B85C38] text-[11px] font-bold uppercase tracking-wider">
+                ROUND 3 COMPLETE
+              </span>
+              <h3 className="text-[15px] font-bold text-[#EDEAE1]">
+                All 3 Rounds Concluded
+              </h3>
+            </div>
+            <p className="text-[12px] text-[#8B939A] mt-1">
+              All remaining unsold players are now permanently marked as FINAL_UNSOLD.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => executeApi(`/api/auctions/${auction.id}/complete`)}
+            disabled={loading}
+            className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A] font-bold text-[13px] flex items-center gap-1.5 shrink-0"
+          >
+            <Square className="w-3.5 h-3.5 text-[#B85C38]" />
+            <span>Complete Auction</span>
           </button>
         </div>
       )}
