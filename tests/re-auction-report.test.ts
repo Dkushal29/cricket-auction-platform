@@ -500,7 +500,7 @@ async function runReAuctionReportTestSuite() {
     const isZipContainer = excelBuffer[0] === 0x50 && excelBuffer[1] === 0x4B && excelBuffer[2] === 0x03 && excelBuffer[3] === 0x04;
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(excelBuffer);
+    await workbook.xlsx.load(excelBuffer as any);
 
     const sheetNames = workbook.worksheets.map((w) => w.name);
 

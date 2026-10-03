@@ -36,3 +36,35 @@ export function CardSkeleton() {
     </div>
   );
 }
+
+export function ResultsSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Hero Header Skeleton */}
+      <div className="p-8 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
+        <div className="h-6 w-36 bg-[#10151A] rounded-[2px]" />
+        <div className="h-10 w-72 bg-[#10151A] rounded-[2px]" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+          <div className="h-16 bg-[#10151A] rounded-[2px]" />
+          <div className="h-16 bg-[#10151A] rounded-[2px]" />
+          <div className="h-16 bg-[#10151A] rounded-[2px]" />
+          <div className="h-16 bg-[#10151A] rounded-[2px]" />
+        </div>
+      </div>
+
+      {/* Leaderboard Cards Skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="h-48 bg-[#1B2229] border border-[#2B343C] rounded-[4px]" />
+        <div className="h-48 bg-[#1B2229] border border-[#2B343C] rounded-[4px]" />
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="p-6 bg-[#1B2229] border border-[#2B343C] rounded-[4px] space-y-3">
+        <div className="h-6 w-48 bg-[#10151A] rounded-[2px]" />
+        <div className="h-10 w-full bg-[#10151A] rounded-[2px]" />
+        <div className="h-10 w-full bg-[#10151A] rounded-[2px]" />
+        <div className="h-10 w-full bg-[#10151A] rounded-[2px]" />
+      </div>
+    </div>
+  );
+}

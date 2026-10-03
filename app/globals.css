@@ -1,60 +1,66 @@
-@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Caveat:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --ink: #10151A;
-  --stadium-navy: #0A0F16;
-  --panel: #131A22;
-  --panel-border: #232C36;
-  --line: #2B343C;
-  --gold: #D9A94E;
+  --ink: #070B12;
+  --surface: #0D131C;
+  --surface-raised: #121A24;
+  --panel: #0D131C;
+  --panel-border: #202B38;
+  --line: #202B38;
+  --gold: #E5AE3F;
+  --gold-bright: #F4C65E;
   --gold-deep: #B9862E;
-  --live-green: #34D399;
-  --brass: #C7A046;
+  --brass: #E5AE3F;
+  --live-green: #28D17C;
+  --danger: #FF5C5C;
+  --info: #4DA3FF;
   --team-a: #3E7CB1;
   --team-b: #B85C38;
-  --text-primary: #F5F3EE;
-  --text-muted: #8B93A0;
+  --text-primary: #F5F7FA;
+  --text-muted: #8B98A8;
 }
 
 body {
   background-color: var(--ink);
   color: var(--text-primary);
-  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.font-hero {
-  font-family: 'Big Shoulders Display', sans-serif;
+.font-hero, .font-display {
+  font-family: 'Bebas Neue', 'Big Shoulders Display', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.font-numerals {
+  font-family: 'Big Shoulders Display', 'Inter', monospace;
   font-feature-settings: "tnum";
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
 
 .font-ui {
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: 'Inter', sans-serif;
 }
 
-.font-script {
-  font-family: 'Caveat', cursive;
+/* Stadium Surface & Hairline Panels */
+.surface-card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
 }
 
-/* Glass & Stadium Panel Surfaces */
-.glass-panel {
-  background: rgba(19, 26, 34, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--panel-border);
-}
-
-.glass-panel:hover {
-  border-color: rgba(217, 169, 78, 0.4);
+.surface-raised {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: 4px;
 }
 
 /* 1px Hairline Borders and Panels */
@@ -103,6 +109,34 @@ body {
 
 .animate-brass-flash {
   animation: brass-flash 0.8s ease-out;
+}
+
+/* Hero Entrance Animations */
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes hero-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-subtle-zoom {
+  from { transform: scale(1.04); }
+  to { transform: scale(1); }
+}
+
+.animate-hero-fade {
+  animation: hero-fade-in 0.8s ease-out forwards;
+}
+
+.animate-hero-slide-up {
+  animation: hero-slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-hero-zoom {
+  animation: hero-subtle-zoom 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Custom Scrollbars */

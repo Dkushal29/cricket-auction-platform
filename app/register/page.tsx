@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/components/ToastNotifications";
-import { Shield, User, Mail, Lock, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
+import { Shield, User, Mail, Lock, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -64,7 +64,7 @@ export default function RegisterPage() {
         addToast(data.error || "Registration failed", "error");
       } else {
         login(data.token, data.user);
-        addToast(`Welcome, ${data.user.name}! Your auctioneer account is ready.`, "success");
+        addToast(`Welcome, ${data.user.name}! Your auctioneer account is ready.`, "brass");
         router.push("/dashboard");
       }
     } catch (err: any) {
@@ -77,84 +77,92 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-center items-center p-4 sm:p-6">
+    <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-center items-center p-4 sm:p-6 selection:bg-[#E5AE3F] selection:text-[#070B12]">
       <div className="max-w-md w-full space-y-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-[13px] text-[#8B98A8] hover:text-[#F5F7FA] transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Home</span>
+        </Link>
+
         {/* Header */}
-        <div className="text-center space-y-1.5">
+        <div className="text-center space-y-1">
           <div className="inline-flex items-center gap-2 mb-1">
-            <span className="w-3 h-3 bg-[#C7A046] rounded-[2px]" />
-            <span className="font-bold text-[18px] text-[#EDEAE1]">Real-time auction broadcast</span>
+            <span className="text-[24px]">🏏</span>
+            <span className="font-hero text-[28px] font-black text-[#F5F7FA] tracking-wide">BIDXI</span>
           </div>
-          <h1 className="text-[26px] sm:text-[30px] font-bold text-[#EDEAE1]">
+          <h1 className="font-hero text-[30px] sm:text-[34px] font-black text-[#F5F7FA] uppercase tracking-wide">
             Create Auctioneer Account
           </h1>
-          <p className="text-[14px] text-[#8B939A]">
-            Register as an auctioneer to create arenas, configure lots, and host live auctions.
+          <p className="text-[13px] text-[#8B98A8]">
+            Host live cricket arenas, manage player lots, and run real-time bidding.
           </p>
         </div>
 
         {/* Info Banner */}
-        <div className="p-3.5 bg-[#1B2229] border border-[#2B343C] rounded-[4px] text-[13px] text-[#8B939A] space-y-1">
-          <div className="flex items-center gap-1.5 text-[#C7A046] font-semibold text-[13px]">
-            <Shield className="w-4 h-4" />
-            <span>Auctioneer Only</span>
+        <div className="p-3.5 bg-[#0D131C] border border-[#202B38] rounded-[4px] text-[12px] text-[#8B98A8] space-y-1">
+          <div className="flex items-center gap-1.5 text-[#E5AE3F] font-bold text-[12px]">
+            <Shield className="w-3.5 h-3.5" />
+            <span>Auctioneer Workspace</span>
           </div>
           <p>
-            Bidders and spectators do <strong className="text-[#EDEAE1]">not</strong> need an account — they join directly via your private invite links.
+            Bidders and spectators do <strong className="text-[#F5F7FA]">not</strong> need an account — they join directly via room code or invite link.
           </p>
         </div>
 
         {/* Form Container */}
-        <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
+        <div className="p-6 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-4 shadow-xl">
           {errorMessage && (
-            <div className="p-3 rounded-[3px] bg-red-950/40 border border-red-800/60 text-red-300 text-[13px]">
+            <div className="p-3 rounded-[3px] bg-[#FF5C5C]/15 border border-[#FF5C5C]/40 text-[#FF5C5C] text-[12px] font-medium">
               {errorMessage}
             </div>
           )}
 
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-3.5">
             <div>
-              <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1">
                 Full Name
               </label>
               <div className="relative">
-                <User className="w-3.5 h-3.5 text-[#8B939A] absolute left-3 top-3" />
+                <User className="w-3.5 h-3.5 text-[#8B98A8] absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="e.g. Rahul Dravid"
+                  placeholder="e.g. Rahul Sharma"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
                   disabled={loading}
-                  className="w-full pl-8 pr-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#EDEAE1] focus:outline-none focus:border-[#8B939A]"
+                  className="w-full pl-8 pr-3 py-2 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[13px] text-[#F5F7FA] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-3.5 h-3.5 text-[#8B939A] absolute left-3 top-3" />
+                <Mail className="w-3.5 h-3.5 text-[#8B98A8] absolute left-3 top-3" />
                 <input
                   type="email"
-                  placeholder="auctioneer@domain.com"
+                  placeholder="name@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
-                  className="w-full pl-8 pr-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#EDEAE1] focus:outline-none focus:border-[#8B939A]"
+                  className="w-full pl-8 pr-3 py-2 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[13px] text-[#F5F7FA] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1">
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-3.5 h-3.5 text-[#8B939A] absolute left-3 top-3" />
+                <Lock className="w-3.5 h-3.5 text-[#8B98A8] absolute left-3 top-3" />
                 <input
                   type="password"
                   placeholder="At least 6 characters"
@@ -163,17 +171,17 @@ export default function RegisterPage() {
                   required
                   minLength={6}
                   disabled={loading}
-                  className="w-full pl-8 pr-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#EDEAE1] focus:outline-none focus:border-[#8B939A]"
+                  className="w-full pl-8 pr-3 py-2 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[13px] text-[#F5F7FA] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1">
                 Confirm Password
               </label>
               <div className="relative">
-                <Lock className="w-3.5 h-3.5 text-[#8B939A] absolute left-3 top-3" />
+                <Lock className="w-3.5 h-3.5 text-[#8B98A8] absolute left-3 top-3" />
                 <input
                   type="password"
                   placeholder="Re-type your password"
@@ -181,7 +189,7 @@ export default function RegisterPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   disabled={loading}
-                  className="w-full pl-8 pr-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#EDEAE1] focus:outline-none focus:border-[#8B939A]"
+                  className="w-full pl-8 pr-3 py-2 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[13px] text-[#F5F7FA] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
             </div>
@@ -189,16 +197,12 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-2.5 rounded-[2px] font-semibold text-[13px] transition-colors flex items-center justify-center gap-2 ${
-                loading
-                  ? "bg-[#2B343C] text-[#8B939A] cursor-not-allowed"
-                  : "bg-[#EDEAE1] text-[#10151A] hover:bg-white"
-              }`}
+              className="w-full py-2.5 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] transition-all flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(229,174,63,0.15)] disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Creating account...</span>
+                  <span>Creating Account...</span>
                 </>
               ) : (
                 <>
@@ -209,13 +213,10 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          <div className="pt-3 border-t border-[#2B343C] text-center">
-            <p className="text-[13px] text-[#8B939A]">
+          <div className="pt-3 border-t border-[#202B38] text-center">
+            <p className="text-[12px] text-[#8B98A8]">
               Already have an account?{" "}
-              <Link
-                href="/login"
-                className="text-[#C7A046] font-semibold hover:underline"
-              >
+              <Link href="/login" className="text-[#E5AE3F] font-bold hover:underline">
                 Sign in
               </Link>
             </p>

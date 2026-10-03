@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, hashPassword } from "@/lib/auth";
 import { generateRoomCode, generateSecureToken } from "@/lib/invite-crypto";
+import { fisherYatesShuffle } from "@/lib/random-shuffle";
 import { z } from "zod";
 
 const createAuctionSchema = z.object({
@@ -191,17 +192,18 @@ export async function POST(req: Request) {
           });
         }
 
-        // 4. Create initial player items in bulk (single database write command)
+        // 4. Automatically randomize player items order using Fisher-Yates and persist in bulk
         if (data.items && data.items.length > 0) {
+          const randomizedItems = fisherYatesShuffle(data.items);
           await tx.item.createMany({
-            data: data.items.map((item, i) => ({
+            data: randomizedItems.map((item, i) => ({
               auctionId: auction.id,
               name: item.name,
               category: item.category,
               basePrice: item.basePrice,
               description: item.description || null,
               imageUrl: item.imageUrl || null,
-              orderIndex: item.orderIndex ?? i + 1,
+              orderIndex: i + 1,
               status: "PENDING",
             })),
           });

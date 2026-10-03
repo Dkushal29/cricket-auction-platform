@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { getIO, stopItemTimer } from "./socket-server";
+import { advanceAuctionPlayer } from "./auction-advancement";
 
 export interface FinalizeResult {
   status: "SOLD" | "UNSOLD" | "FINAL_UNSOLD" | "ALREADY_FINALIZED";
@@ -17,11 +18,13 @@ export interface FinalizeResult {
  * - If 0 bids exist on the item, marks Item status as UNSOLD:
  *   clears activeItemId, logs audit entry, and broadcasts player_unsold.
  * - If item is already SOLD or UNSOLD, exits safely without duplicate deductions or errors.
+ * - If options.autoAdvance is true, automatically loads the next randomized player.
  */
 export async function finalizeOrUnsoldLot(
   auctionId: string,
   itemId: string,
-  auctioneerUserId?: string
+  auctioneerUserId?: string,
+  options?: { autoAdvance?: boolean }
 ): Promise<FinalizeResult> {
   const maxRetries = 5;
   let lastError: any = null;
@@ -264,6 +267,17 @@ export async function finalizeOrUnsoldLot(
             isFinal: false,
           });
         } catch (e) {}
+      }
+
+      // Automatically advance to the next randomized player if requested
+      if (options?.autoAdvance) {
+        try {
+          await advanceAuctionPlayer(result.auctionId, {
+            auctioneerUserId,
+          });
+        } catch (advanceErr) {
+          console.error("Auto advance error:", advanceErr);
+        }
       }
 
       return result;

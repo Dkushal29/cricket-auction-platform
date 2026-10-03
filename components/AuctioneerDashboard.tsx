@@ -258,8 +258,19 @@ export function AuctioneerDashboard({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
             <div className="flex items-center gap-3 text-slate-400 text-xs sm:text-sm">
               <Clock className="w-5 h-5 text-amber-400 shrink-0" />
-              <span>No item currently under hammer. Choose the next lot from queue below.</span>
+              <span>No item currently under hammer. Player sequence is automatically randomized.</span>
             </div>
+
+            {isLive && !activeItem && auction.items.some((i) => i.status === "PENDING") && (
+              <button
+                onClick={() => executeApi(`/api/auctions/${auction.id}/next`)}
+                disabled={loading}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow transition-all active:scale-95 self-start sm:self-auto"
+              >
+                <FastForward className="w-3.5 h-3.5" />
+                <span>Call Next Player</span>
+              </button>
+            )}
 
             {canUndo && mostRecentSoldItem && (
               <button
@@ -288,7 +299,7 @@ export function AuctioneerDashboard({
           <div className="flex items-center gap-2">
             <Layers className="w-5 h-5 text-amber-400" />
             <h3 className="text-lg font-bold text-white">
-              Player Auction Pool ({auction.items.length} Lots)
+              Player Auction Pool ({auction.items.length} Lots • Randomized Order)
             </h3>
           </div>
 
@@ -405,18 +416,6 @@ export function AuctioneerDashboard({
                     <span className="text-xs text-slate-400 bg-slate-800/60 px-2.5 py-1 rounded-xl">
                       QUEUED
                     </span>
-                  )}
-
-                  {/* Activate / Bring to Hammer Button */}
-                  {isLive && isPending && !activeItem && (
-                    <button
-                      onClick={() => handleActivateItem(item.id)}
-                      disabled={loading}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow transition-all active:scale-95"
-                    >
-                      <FastForward className="w-3.5 h-3.5" />
-                      <span>Bring to Hammer</span>
-                    </button>
                   )}
                 </div>
               </div>

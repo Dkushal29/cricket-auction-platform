@@ -42,8 +42,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Refresh from /api/auth/me
+    // Refresh from /api/auth/me with credentials
     fetch("/api/auth/me", {
+      credentials: "include",
       headers: storedToken ? { Authorization: `Bearer ${storedToken}` } : {},
     })
       .then((res) => res.json())
@@ -59,8 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           };
           setUser(u);
           localStorage.setItem("auction_user", JSON.stringify(u));
+          if (data.token) {
+            setToken(data.token);
+            localStorage.setItem("auction_token", data.token);
+          }
         } else if (!storedToken) {
           setUser(null);
+          setToken(null);
         }
       })
       .catch(() => {})

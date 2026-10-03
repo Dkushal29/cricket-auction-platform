@@ -32,8 +32,8 @@ export default function WarRoomPage() {
 
   if (loading || !data) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      <div className="min-h-screen bg-[#070B12] flex items-center justify-center text-[#F5F7FA]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
       </div>
     );
   }
@@ -52,33 +52,33 @@ export default function WarRoomPage() {
   const teamBComp = getSquadComposition(teamBWon);
 
   return (
-    <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
+    <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between">
       {/* Header */}
-      <header className="h-14 px-4 sm:px-6 bg-[#1B2229] border-b border-[#2B343C] flex items-center justify-between">
+      <header className="h-14 px-4 sm:px-6 bg-[#0D131C] border-b border-[#202B38] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => router.push(`/auction/${auctionId}`)}
-            className="p-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A]"
+            className="p-1.5 rounded-[2px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-[16px] font-bold text-[#EDEAE1]">Auction War Room</h1>
-            <span className="text-[12px] text-[#8B939A]">{data.name}</span>
+            <h1 className="text-[16px] font-bold text-[#F5F7FA]">Auction War Room</h1>
+            <span className="text-[12px] text-[#8B98A8]">{data.name}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             href={`/auction/${auctionId}/replay`}
-            className="px-3 py-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] text-[12px] font-medium"
+            className="px-3 py-1.5 rounded-[2px] bg-[#121A24] border border-[#202B38] hover:border-[#8B98A8] text-[#F5F7FA] text-[12px] font-medium transition-colors"
           >
             Timeline replay
           </Link>
           <Link
             href={`/auction/${auctionId}/results`}
-            className="px-3 py-1.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[12px]"
+            className="px-3 py-1.5 rounded-[2px] bg-[#E5AE3F] text-[#070B12] hover:bg-[#F4C65E] font-semibold text-[12px] transition-colors"
           >
             Ledger & exports
           </Link>
@@ -88,36 +88,36 @@ export default function WarRoomPage() {
       <main className="max-w-7xl w-full mx-auto p-4 sm:p-6 flex-1 space-y-6">
         {/* KPI Strip */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-4 rounded-[4px] bg-[#1B2229] border border-[#2B343C]">
-            <span className="text-[12px] text-[#8B939A] block mb-1">Total revenue committed</span>
-            <div className="font-hero text-[28px] font-bold text-[#C7A046] tabular-nums">
+          <div className="p-4 rounded-[4px] bg-[#0D131C] border border-[#202B38]">
+            <span className="text-[12px] text-[#8B98A8] block mb-1">Total revenue committed</span>
+            <div className="font-hero text-[28px] font-bold text-[#E5AE3F] tabular-nums">
               {formatINR(data.summary?.totalRevenue || 0)}
             </div>
           </div>
 
-          <div className="p-4 rounded-[4px] bg-[#1B2229] border border-[#2B343C]">
+          <div className="p-4 rounded-[4px] bg-[#0D131C] border border-[#202B38]">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[12px] text-[#8B939A]">Auction momentum</span>
-              <Flame className={`w-4 h-4 ${momentum.level === "HIGH" ? "text-[#C7A046]" : "text-[#8B939A]"}`} />
+              <span className="text-[12px] text-[#8B98A8]">Auction momentum</span>
+              <Flame className={`w-4 h-4 ${momentum.level === "HIGH" ? "text-[#E5AE3F]" : "text-[#8B98A8]"}`} />
             </div>
-            <div className="font-hero text-[28px] font-bold text-[#EDEAE1] tabular-nums">
+            <div className="font-hero text-[28px] font-bold text-[#F5F7FA] tabular-nums">
               {momentum.level}
             </div>
-            <span className="text-[11px] text-[#8B939A]">
+            <span className="text-[11px] text-[#8B98A8]">
               ~{momentum.velocityPerMinute.toFixed(0)} bids/min velocity
             </span>
           </div>
 
-          <div className="p-4 rounded-[4px] bg-[#1B2229] border border-[#2B343C]">
-            <span className="text-[12px] text-[#8B939A] block mb-1">Lots cleared</span>
-            <div className="font-hero text-[28px] font-bold text-[#EDEAE1] tabular-nums">
+          <div className="p-4 rounded-[4px] bg-[#0D131C] border border-[#202B38]">
+            <span className="text-[12px] text-[#8B98A8] block mb-1">Lots cleared</span>
+            <div className="font-hero text-[28px] font-bold text-[#F5F7FA] tabular-nums">
               {data.summary?.soldCount} / {data.summary?.totalItems}
             </div>
           </div>
 
-          <div className="p-4 rounded-[4px] bg-[#1B2229] border border-[#2B343C]">
-            <span className="text-[12px] text-[#8B939A] block mb-1">Total bids logged</span>
-            <div className="font-hero text-[28px] font-bold text-[#EDEAE1] tabular-nums">
+          <div className="p-4 rounded-[4px] bg-[#0D131C] border border-[#202B38]">
+            <span className="text-[12px] text-[#8B98A8] block mb-1">Total bids logged</span>
+            <div className="font-hero text-[28px] font-bold text-[#F5F7FA] tabular-nums">
               {bids.length}
             </div>
           </div>
@@ -126,72 +126,72 @@ export default function WarRoomPage() {
         {/* Head to Head Spend & Squad Composition */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Team A */}
-          <div className="p-5 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4" style={{ borderTop: "3px solid #3E7CB1" }}>
-            <div className="flex items-center justify-between border-b border-[#2B343C] pb-2">
+          <div className="p-5 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-4" style={{ borderTop: "3px solid #3E7CB1" }}>
+            <div className="flex items-center justify-between border-b border-[#202B38] pb-2">
               <div>
                 <span className="text-[11px] text-[#3E7CB1] font-bold">Team Alpha</span>
-                <h3 className="text-[16px] font-bold text-[#EDEAE1]">{teamA?.teamName}</h3>
+                <h3 className="text-[16px] font-bold text-[#F5F7FA]">{teamA?.teamName}</h3>
               </div>
               <div className="text-right">
-                <span className="text-[11px] text-[#8B939A] block">Spend</span>
-                <span className="font-hero text-[18px] font-bold text-[#EDEAE1] tabular-nums">{formatINR(teamA?.totalSpent || 0)}</span>
+                <span className="text-[11px] text-[#8B98A8] block">Spend</span>
+                <span className="font-hero text-[18px] font-bold text-[#F5F7FA] tabular-nums">{formatINR(teamA?.totalSpent || 0)}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[12px] text-[#8B939A] font-medium block">Squad balance ({teamAWon.length} players)</span>
+              <span className="text-[12px] text-[#8B98A8] font-medium block">Squad balance ({teamAWon.length} players)</span>
               <div className="grid grid-cols-4 gap-2 text-[12px] text-center">
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">BATSMEN</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamAComp.batsmen}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">BATSMEN</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamAComp.batsmen}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">BOWLERS</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamAComp.bowlers}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">BOWLERS</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamAComp.bowlers}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">ALL-ROUND</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamAComp.allRounders}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">ALL-ROUND</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamAComp.allRounders}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">KEEPERS</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamAComp.wicketkeepers}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">KEEPERS</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamAComp.wicketkeepers}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Team B */}
-          <div className="p-5 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4" style={{ borderTop: "3px solid #B85C38" }}>
-            <div className="flex items-center justify-between border-b border-[#2B343C] pb-2">
+          <div className="p-5 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-4" style={{ borderTop: "3px solid #B85C38" }}>
+            <div className="flex items-center justify-between border-b border-[#202B38] pb-2">
               <div>
                 <span className="text-[11px] text-[#B85C38] font-bold">Team Beta</span>
-                <h3 className="text-[16px] font-bold text-[#EDEAE1]">{teamB?.teamName}</h3>
+                <h3 className="text-[16px] font-bold text-[#F5F7FA]">{teamB?.teamName}</h3>
               </div>
               <div className="text-right">
-                <span className="text-[11px] text-[#8B939A] block">Spend</span>
-                <span className="font-hero text-[18px] font-bold text-[#EDEAE1] tabular-nums">{formatINR(teamB?.totalSpent || 0)}</span>
+                <span className="text-[11px] text-[#8B98A8] block">Spend</span>
+                <span className="font-hero text-[18px] font-bold text-[#F5F7FA] tabular-nums">{formatINR(teamB?.totalSpent || 0)}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[12px] text-[#8B939A] font-medium block">Squad balance ({teamBWon.length} players)</span>
+              <span className="text-[12px] text-[#8B98A8] font-medium block">Squad balance ({teamBWon.length} players)</span>
               <div className="grid grid-cols-4 gap-2 text-[12px] text-center">
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">BATSMEN</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamBComp.batsmen}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">BATSMEN</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamBComp.batsmen}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">BOWLERS</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamBComp.bowlers}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">BOWLERS</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamBComp.bowlers}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">ALL-ROUND</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamBComp.allRounders}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">ALL-ROUND</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamBComp.allRounders}</span>
                 </div>
-                <div className="p-2 bg-[#10151A] rounded-[2px] border border-[#2B343C]">
-                  <span className="text-[#8B939A] block text-[10px]">KEEPERS</span>
-                  <span className="font-hero text-[16px] font-bold text-[#EDEAE1] tabular-nums">{teamBComp.wicketkeepers}</span>
+                <div className="p-2 bg-[#121A24] rounded-[2px] border border-[#202B38]">
+                  <span className="text-[#8B98A8] block text-[10px]">KEEPERS</span>
+                  <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{teamBComp.wicketkeepers}</span>
                 </div>
               </div>
             </div>
@@ -199,32 +199,32 @@ export default function WarRoomPage() {
         </div>
 
         {/* Top Purchases */}
-        <div className="p-5 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-3">
-          <h2 className="text-[15px] font-bold text-[#EDEAE1]">
+        <div className="p-5 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-3">
+          <h2 className="text-[15px] font-bold text-[#F5F7FA]">
             Top acquisitions of the auction
           </h2>
 
           <div className="space-y-2">
             {topPurchases.length === 0 ? (
-              <p className="text-[13px] text-[#8B939A]">No deals finalized yet.</p>
+              <p className="text-[13px] text-[#8B98A8]">No deals finalized yet.</p>
             ) : (
               topPurchases.map((player: any, idx: number) => {
                 const winner = data.participants?.find((p: any) => p.userId === player.winnerId);
                 return (
                   <div
                     key={player.id}
-                    className="flex items-center justify-between p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px]"
+                    className="flex items-center justify-between p-3 rounded-[2px] bg-[#121A24] border border-[#202B38] text-[13px]"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="font-hero text-[16px] font-bold text-[#C7A046] tabular-nums">#{idx + 1}</span>
+                      <span className="font-hero text-[16px] font-bold text-[#E5AE3F] tabular-nums">#{idx + 1}</span>
                       <div>
-                        <span className="font-semibold text-[#EDEAE1] block">{player.name}</span>
-                        <span className="text-[11px] text-[#8B939A]">
+                        <span className="font-semibold text-[#F5F7FA] block">{player.name}</span>
+                        <span className="text-[11px] text-[#8B98A8]">
                           {winner?.teamName} • {player.category}
                         </span>
                       </div>
                     </div>
-                    <span className="font-hero text-[18px] font-bold text-[#C7A046] tabular-nums">
+                    <span className="font-hero text-[18px] font-bold text-[#E5AE3F] tabular-nums">
                       {formatExactINR(player.winningPrice)}
                     </span>
                   </div>

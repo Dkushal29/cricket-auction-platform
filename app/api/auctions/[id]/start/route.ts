@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuctioneerOwnership } from "@/lib/auth";
 import { assertValidAuctionTransition, isAuctionConfigComplete } from "@/lib/auction-state";
 import { getIO, startItemTimer, checkBidderReadiness } from "@/lib/socket-server";
+import { fisherYatesShuffle } from "@/lib/random-shuffle";
 
 export async function POST(
   req: Request,
@@ -85,7 +86,25 @@ export async function POST(
           assertValidAuctionTransition(currentAuction.status as any, "LIVE");
         }
 
-        // Determine active item to activate
+        // Ensure pending items order is persisted; if created with orderIndex 0, randomize once
+        const pendingItems = currentAuction.items.filter((i) => i.status === "PENDING");
+        const needsOrdering =
+          pendingItems.length > 1 &&
+          pendingItems.every((i) => i.orderIndex === 0);
+
+        if (needsOrdering) {
+          const shuffled = fisherYatesShuffle(pendingItems);
+          for (let idx = 0; idx < shuffled.length; idx++) {
+            await tx.item.update({
+              where: { id: shuffled[idx].id },
+              data: { orderIndex: idx + 1 },
+            });
+            shuffled[idx].orderIndex = idx + 1;
+          }
+          currentAuction.items.sort((a, b) => a.orderIndex - b.orderIndex);
+        }
+
+        // Determine active item to activate based on persisted orderIndex
         let activeItemId = currentAuction.activeItemId;
         let newlyActivatedItem = null;
 

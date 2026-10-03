@@ -141,13 +141,13 @@ export function AuctionControlPanel({
   return (
     <div className="space-y-4">
       {/* Primary Hammer Actions Deck */}
-      <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 sm:p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-[#2B343C]">
+      <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-4 sm:p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-[#202B38]">
           <div>
-            <h2 className="text-[16px] font-bold text-[#EDEAE1]">
+            <h2 className="text-[16px] font-bold text-[#F5F7FA]">
               Auctioneer controls
             </h2>
-            <p className="text-[13px] text-[#8B939A]">
+            <p className="text-[13px] text-[#8B98A8]">
               Manage lot transitions and hammer decisions
             </p>
           </div>
@@ -159,10 +159,10 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={fetchReadinessAndPrompt}
                 disabled={loading}
-                className="px-3 py-1.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] flex items-center gap-1.5 shadow-sm"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>{isReady ? "Start auction (Ready)" : "Start auction (Pre-flight check)"}</span>
+                <span>{isReady ? "Start auction (Ready)" : "Start auction (Pre-flight)"}</span>
               </button>
             )}
 
@@ -171,7 +171,7 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={() => executeApi(`/api/auctions/${auction.id}/pause`)}
                 disabled={loading}
-                className="px-3 py-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] font-semibold text-[13px] hover:border-[#8B939A] flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-semibold text-[13px] hover:border-[#8B98A8] flex items-center gap-1.5"
               >
                 <Pause className="w-3.5 h-3.5 fill-current" />
                 <span>Pause</span>
@@ -183,7 +183,7 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={() => executeApi(`/api/auctions/${auction.id}/resume`)}
                 disabled={loading}
-                className="px-3 py-1.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center gap-1.5"
+                className="px-3 py-1.5 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] flex items-center gap-1.5"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Resume</span>
@@ -195,7 +195,7 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={() => setConfirmModal({ type: "end" })}
                 disabled={loading}
-                className="px-3 py-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#8B939A] hover:text-[#EDEAE1] font-medium text-[13px] flex items-center gap-1"
+                className="px-3 py-1.5 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[#8B98A8] hover:text-[#F5F7FA] font-medium text-[13px] flex items-center gap-1"
               >
                 <Square className="w-3 h-3" />
                 <span>End</span>
@@ -206,17 +206,17 @@ export function AuctionControlPanel({
 
         {/* Current Active Lot Hammer Decisions */}
         {activeItem ? (
-          <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3">
+          <div className="p-4 rounded-[3px] bg-[#070B12] border border-[#202B38] space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-[12px] text-[#8B939A] block">Current spotlight</span>
-                <span className="text-[15px] font-bold text-[#EDEAE1]">
+                <span className="text-[12px] text-[#8B98A8] block">Current spotlight</span>
+                <span className="text-[15px] font-bold text-[#F5F7FA]">
                   #{activeItem.orderIndex} {activeItem.name}
                 </span>
               </div>
               <div className="text-right">
-                <span className="text-[12px] text-[#8B939A] block">Highest bid</span>
-                <span className="font-hero text-[18px] font-bold text-[#C7A046] tabular-nums">
+                <span className="text-[12px] text-[#8B98A8] block">Highest bid</span>
+                <span className="font-hero text-[18px] font-bold text-[#E5AE3F] tabular-nums">
                   {highestBid ? formatExactINR(highestBid.amount) : "No bids yet"}
                 </span>
               </div>
@@ -227,10 +227,10 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={() => executeApi(`/api/items/${activeItem.id}/finalize`)}
                 disabled={loading || !isLive || !highestBid}
-                className={`py-2.5 px-4 rounded-[2px] font-semibold text-[14px] flex items-center justify-center gap-2 ${
+                className={`py-2.5 px-4 rounded-[3px] font-bold text-[13px] flex items-center justify-center gap-2 ${
                   isLive && highestBid
-                    ? "bg-[#C7A046] text-[#10151A] hover:brightness-110"
-                    : "bg-[#2B343C] text-[#8B939A] opacity-60 cursor-not-allowed"
+                    ? "bg-[#E5AE3F] text-[#070B12] hover:bg-[#F4C65E]"
+                    : "bg-[#121A24] text-[#8B98A8] opacity-60 cursor-not-allowed border border-[#202B38]"
                 }`}
               >
                 <Gavel className="w-4 h-4" />
@@ -243,16 +243,29 @@ export function AuctionControlPanel({
                 type="button"
                 onClick={() => executeApi(`/api/items/${activeItem.id}/unsold`)}
                 disabled={loading || !isLive}
-                className="py-2.5 px-4 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A] font-semibold text-[14px] flex items-center justify-center gap-2"
+                className="py-2.5 px-4 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] font-semibold text-[13px] flex items-center justify-center gap-2"
               >
-                <XCircle className="w-4 h-4 text-[#8B939A]" />
+                <XCircle className="w-4 h-4 text-[#8B98A8]" />
                 <span>Mark unsold & pass</span>
               </button>
             </div>
           </div>
         ) : (
-          <div className="p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C] flex items-center justify-between text-[13px] text-[#8B939A]">
-            <span>No lot currently under hammer. Choose a player from pool below.</span>
+          <div className="p-3 rounded-[3px] bg-[#070B12] border border-[#202B38] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[13px] text-[#8B98A8]">
+            <div className="flex items-center gap-2">
+              <span>No lot currently under hammer.</span>
+              {isLive && pendingItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => executeApi(`/api/auctions/${auction.id}/next`)}
+                  disabled={loading}
+                  className="px-3 py-1 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[12px] hover:bg-[#F4C65E] flex items-center gap-1.5 transition-all"
+                >
+                  <FastForward className="w-3.5 h-3.5" />
+                  <span>Bring Next Player (#{pendingItems[0].orderIndex} {pendingItems[0].name})</span>
+                </button>
+              )}
+            </div>
             {canUndo && mostRecentSoldItem && (
               <button
                 type="button"
@@ -265,9 +278,9 @@ export function AuctionControlPanel({
                   })
                 }
                 disabled={loading}
-                className="px-2.5 py-1 rounded-[2px] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A] flex items-center gap-1.5"
+                className="px-2.5 py-1 rounded-[3px] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] flex items-center gap-1.5 self-start sm:self-auto"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-3.5 h-3.5 text-[#E5AE3F]" />
                 <span>Undo last sale ({mostRecentSoldItem.name})</span>
               </button>
             )}
@@ -306,9 +319,14 @@ export function AuctionControlPanel({
       {/* Lot Pool Management */}
       <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[15px] font-bold text-[#EDEAE1]">
-            Player auction pool ({auction.items.length} lots)
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-bold text-[#EDEAE1]">
+              Player auction pool ({auction.items.length} lots)
+            </h3>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-[2px] bg-[#C7A046]/15 text-[#C7A046] border border-[#C7A046]/30 font-semibold uppercase">
+              Randomized Order
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-[12px] text-[#8B939A]">
             <span>Pending: {pendingItems.length}</span>
             <span>•</span>
@@ -367,16 +385,10 @@ export function AuctionControlPanel({
                     </span>
                   )}
 
-                  {isLive && isPending && !activeItem && (
-                    <button
-                      type="button"
-                      onClick={() => executeApi(`/api/items/${item.id}/activate`)}
-                      disabled={loading}
-                      className="px-2.5 py-1 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-medium text-[12px] hover:bg-white flex items-center gap-1"
-                    >
-                      <FastForward className="w-3 h-3" />
-                      <span>Bring to stage</span>
-                    </button>
+                  {isPending && (
+                    <span className="px-2 py-0.5 rounded-[2px] bg-[#1B2229] border border-[#2B343C] text-[11px] text-[#8B939A]">
+                      Queued
+                    </span>
                   )}
 
                   {isLive && isUnsoldR1 && !activeItem && (

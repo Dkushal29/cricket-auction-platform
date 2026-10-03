@@ -7,32 +7,50 @@ import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/components/ToastNotifications";
 import { formatExactINR, formatINR } from "@/lib/auction-state";
 import { AUCTION_PRESETS } from "@/lib/auction-templates";
-import { ArrowLeft, Check, ChevronRight, Gavel, Plus, Trash2, Trophy, Users, Shield, Layers, Settings } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Gavel,
+  Plus,
+  Trash2,
+  Trophy,
+  Users,
+  Shield,
+  Layers,
+  Settings,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 
 export default function CreateAuctionPage() {
   const router = useRouter();
-  const { user, token } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const { addToast } = useToast();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [loading, setLoading] = useState(false);
 
-  // Step 1: Details
-  const [name, setName] = useState("Champions Cricket League 2026");
-  const [description, setDescription] = useState("Private multiplayer cricket mega auction with friends");
+  React.useEffect(() => {
+    if (!authLoading && !user) {
+      addToast("Please sign in as an Auctioneer to create and host an auction", "error");
+      router.push("/login?redirect=/create-auction");
+    }
+  }, [user, authLoading, router, addToast]);
+
+  // Section 1: Auction Details
+  const [name, setName] = useState("Premier Mega Auction 2026");
+  const [description, setDescription] = useState("Private multiplayer cricket mega auction with real-time bidding and authoritative timers");
   const [sport, setSport] = useState("Cricket");
   const [season, setSeason] = useState("2026");
-  const [bannerUrl, setBannerUrl] = useState("");
 
-  // Step 2: Teams
+  // Section 2: Team Configuration
   const [teamAName, setTeamAName] = useState("Royal Challengers");
   const [teamALogo, setTeamALogo] = useState("https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=150&auto=format&fit=crop&q=80");
   const [teamBName, setTeamBName] = useState("Chennai Super Kings");
   const [teamBLogo, setTeamBLogo] = useState("https://images.unsplash.com/photo-1534447677768-be436bb09401?w=150&auto=format&fit=crop&q=80");
-
-  // Step 3: Budgets
   const [initialBudget, setInitialBudget] = useState(100000000); // 10 Cr
 
-  // Step 4: Players
+  // Section 3: Player Configuration
   const [players, setPlayers] = useState([
     {
       name: "Jasprit Bumrah",
@@ -96,15 +114,13 @@ export default function CreateAuctionPage() {
     },
   ]);
 
-  // Player Form State for adding another player
+  // Player Form Sub-State
   const [newPlayerName, setNewPlayerName] = useState("");
   const [newPlayerCategory, setNewPlayerCategory] = useState("Batsman");
   const [newPlayerBasePrice, setNewPlayerBasePrice] = useState(10000000);
   const [newPlayerImageUrl, setNewPlayerImageUrl] = useState("");
-  const [newPlayerRuns, setNewPlayerRuns] = useState("");
-  const [newPlayerWickets, setNewPlayerWickets] = useState("");
 
-  // Step 5: Rules
+  // Section 4: Auction Rules
   const [minimumBidIncrement, setMinimumBidIncrement] = useState(500000);
   const [timerDuration, setTimerDuration] = useState(30);
   const [antiSnipeThreshold, setAntiSnipeThreshold] = useState(5);
@@ -118,23 +134,21 @@ export default function CreateAuctionPage() {
     setPlayers((prev) => [
       ...prev,
       {
-        name: newPlayerName,
+        name: newPlayerName.trim(),
         category: newPlayerCategory,
         basePrice: newPlayerBasePrice,
         matches: 50,
-        wickets: newPlayerWickets ? parseInt(newPlayerWickets, 10) : 0,
+        wickets: 0,
         economy: 7.5,
-        runs: newPlayerRuns ? parseInt(newPlayerRuns, 10) : 0,
+        runs: 0,
         strikeRate: 140.0,
         imageUrl: newPlayerImageUrl || "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=600&auto=format&fit=crop&q=80",
-        description: "Registered cricket player lot in pool.",
+        description: "Registered cricket athlete in auction pool.",
       },
     ]);
     setNewPlayerName("");
-    setNewPlayerRuns("");
-    setNewPlayerWickets("");
     setNewPlayerImageUrl("");
-    addToast("Player added to draft lot pool", "brass");
+    addToast("Player lot registered into pool", "brass");
   };
 
   const handleRemovePlayer = (index: number) => {
@@ -142,17 +156,37 @@ export default function CreateAuctionPage() {
   };
 
   const handleCreateAuction = async () => {
+    if (!user) {
+      addToast("Authentication required. Please sign in as an Auctioneer.", "error");
+      router.push("/login?redirect=/create-auction");
+      return;
+    }
+
+    if (!name.trim()) {
+      addToast("Please provide an auction name", "error");
+      setCurrentStep(1);
+      return;
+    }
+
+    if (players.length === 0) {
+      addToast("Please register at least one player in the pool", "error");
+      setCurrentStep(3);
+      return;
+    }
+
     setLoading(true);
     try {
+      const activeToken = token || (typeof window !== "undefined" ? localStorage.getItem("auction_token") : null);
       const res = await fetch("/api/auctions", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeToken ? { Authorization: `Bearer ${activeToken}` } : {}),
         },
         body: JSON.stringify({
-          name,
-          description,
+          name: name.trim(),
+          description: description.trim(),
           sport,
           season,
           minimumBidIncrement,
@@ -163,14 +197,14 @@ export default function CreateAuctionPage() {
           maxSquadSize,
           teams: [
             {
-              teamName: teamAName,
+              teamName: teamAName.trim() || "Team Alpha",
               teamLogoUrl: teamALogo,
               teamColor: "#3E7CB1",
               initialBudget,
               userEmail: "bidder1@rcb.com",
             },
             {
-              teamName: teamBName,
+              teamName: teamBName.trim() || "Team Beta",
               teamLogoUrl: teamBLogo,
               teamColor: "#B85C38",
               initialBudget,
@@ -190,6 +224,9 @@ export default function CreateAuctionPage() {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          router.push("/login?redirect=/create-auction");
+        }
         throw new Error(data.error || "Failed to create auction");
       }
 
@@ -202,291 +239,349 @@ export default function CreateAuctionPage() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
+        <span className="text-[13px] text-[#8B98A8]">Verifying auctioneer credentials...</span>
+      </div>
+    );
+  }
+
+  const sections = [
+    { id: 1, title: "Auction Details", desc: "Name, season & presets" },
+    { id: 2, title: "Team Configuration", desc: "Franchise names & purse" },
+    { id: 3, title: "Player Configuration", desc: "Athlete pool & base prices" },
+    { id: 4, title: "Auction Rules", desc: "Clocks, increments & anti-snipe" },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
-      <header className="h-14 px-4 sm:px-6 bg-[#1B2229] border-b border-[#2B343C] flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 text-[#EDEAE1] hover:text-white text-[14px] font-medium">
+    <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between selection:bg-[#E5AE3F] selection:text-[#070B12]">
+      {/* Top Header */}
+      <header className="h-16 px-4 sm:px-8 bg-[#0D131C] border-b border-[#202B38] flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2 text-[#8B98A8] hover:text-[#F5F7FA] text-[13px] font-medium transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to lobby</span>
+          <span>Exit to Home</span>
         </Link>
-        <span className="text-[13px] text-[#8B939A]">Pre-auction setup wizard</span>
+        <div className="flex items-center gap-2 font-hero text-[18px] text-[#F5F7FA]">
+          <span>🏏</span>
+          <span>CREATE AUCTION ROOM</span>
+        </div>
       </header>
 
+      {/* Main Form Body */}
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-8 flex-1 space-y-6">
-        {/* Wizard Steps Indicator */}
-        <div className="p-3 bg-[#1B2229] border border-[#2B343C] rounded-[4px] flex items-center justify-between overflow-x-auto text-[12px] no-scrollbar">
-          {[
-            { step: 1, title: "1. Details" },
-            { step: 2, title: "2. Teams" },
-            { step: 3, title: "3. Budgets" },
-            { step: 4, title: "4. Players" },
-            { step: 5, title: "5. Rules" },
-            { step: 6, title: "6. Review" },
-          ].map((s) => (
-            <button
-              key={s.step}
-              type="button"
-              onClick={() => setCurrentStep(s.step)}
-              className={`px-3 py-1 rounded-[2px] font-medium transition-colors shrink-0 ${
-                currentStep === s.step
-                  ? "bg-[#EDEAE1] text-[#10151A] font-bold"
-                  : currentStep > s.step
-                  ? "text-emerald-400"
-                  : "text-[#8B939A]"
-              }`}
-            >
-              {s.title}
-            </button>
-          ))}
+        {/* Modern 4-Section Stepper */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          {sections.map((s) => {
+            const isActive = currentStep === s.id;
+            const isCompleted = currentStep > s.id;
+
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setCurrentStep(s.id as any)}
+                className={`p-3.5 rounded-[4px] border text-left transition-all ${
+                  isActive
+                    ? "bg-[#121A24] border-[#E5AE3F] shadow-[0_0_12px_rgba(229,174,63,0.15)]"
+                    : isCompleted
+                    ? "bg-[#0D131C] border-[#28D17C]/40 text-[#28D17C]"
+                    : "bg-[#0D131C] border-[#202B38] text-[#8B98A8] hover:border-[#8B98A8]"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${isActive ? "text-[#E5AE3F]" : isCompleted ? "text-[#28D17C]" : "text-[#8B98A8]"}`}>
+                    Section 0{s.id}
+                  </span>
+                  {isCompleted && <span className="text-[12px] text-[#28D17C]">✓</span>}
+                </div>
+                <h3 className={`text-[13px] font-bold truncate ${isActive ? "text-[#F5F7FA]" : "text-[#8B98A8]"}`}>
+                  {s.title}
+                </h3>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Step 1: Details */}
+        {/* ================================================== */}
+        {/* SECTION 1: AUCTION DETAILS */}
+        {/* ================================================== */}
         {currentStep === 1 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-5">
-            <div>
-              <h2 className="text-[18px] font-bold text-[#EDEAE1]">Auction details & templates</h2>
-              <p className="text-[13px] text-[#8B939A]">Choose a quick tournament preset or customize your settings</p>
+          <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-6 sm:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-[#202B38] pb-4">
+              <span className="text-[11px] font-mono text-[#E5AE3F] uppercase tracking-wider block mb-1">SECTION 01</span>
+              <h2 className="font-hero text-[26px] font-bold text-[#F5F7FA] uppercase tracking-wide">
+                Auction Details
+              </h2>
+              <p className="text-[13px] text-[#8B98A8]">
+                Define your tournament identity or apply a certified tournament preset.
+              </p>
             </div>
 
-            {/* Quick Presets */}
+            {/* Presets */}
             <div className="space-y-2">
-              <span className="text-[12px] font-semibold text-[#C7A046] uppercase tracking-wider block">
-                Start from tournament preset
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {AUCTION_PRESETS.map((preset) => (
+              <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block">
+                Quick Tournament Presets
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {AUCTION_PRESETS.map((p) => (
                   <button
-                    key={preset.id}
+                    key={p.id}
                     type="button"
                     onClick={() => {
-                      setName(preset.name);
-                      setDescription(preset.description);
-                      setInitialBudget(preset.initialBudget);
-                      setMinimumBidIncrement(preset.minimumBidIncrement);
-                      setTimerDuration(preset.timerDuration);
-                      setAntiSnipeThreshold(preset.antiSnipeThreshold);
-                      setAntiSnipeExtension(preset.antiSnipeExtension);
-                      setMinSquadSize(preset.minSquadSize);
-                      setMaxSquadSize(preset.maxSquadSize);
-                      addToast(`Applied "${preset.name}" preset`, "brass");
+                      setName(p.name);
+                      setDescription(p.description);
+                      setInitialBudget(p.initialBudget);
+                      setMinimumBidIncrement(p.minimumBidIncrement);
+                      setTimerDuration(p.timerDuration);
+                      setAntiSnipeThreshold(p.antiSnipeThreshold);
+                      setAntiSnipeExtension(p.antiSnipeExtension);
+                      setMinSquadSize(p.minSquadSize);
+                      setMaxSquadSize(p.maxSquadSize);
+                      addToast(`Applied ${p.name} template`, "brass");
                     }}
-                    className="p-3 rounded-[3px] bg-[#10151A] border border-[#2B343C] hover:border-[#C7A046] text-left space-y-1 transition-colors"
+                    className="p-3.5 rounded-[4px] bg-[#070B12] border border-[#202B38] hover:border-[#E5AE3F] text-left transition-all space-y-1 group"
                   >
-                    <span className="text-[13px] font-bold text-[#EDEAE1] block">{preset.name}</span>
-                    <span className="text-[11px] text-[#C7A046] font-semibold block">{preset.tagline}</span>
-                    <span className="text-[11px] text-[#8B939A] block leading-tight">{preset.description}</span>
+                    <span className="font-bold text-[14px] text-[#F5F7FA] group-hover:text-[#E5AE3F] block">
+                      {p.name}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#E5AE3F] block">
+                      {p.tagline}
+                    </span>
+                    <span className="text-[11px] text-[#8B98A8] block line-clamp-2">
+                      {p.description}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-3 pt-2 border-t border-[#2B343C]">
+            {/* Inputs */}
+            <div className="space-y-4 pt-2">
               <div>
-                <label className="text-[12px] font-medium text-[#8B939A] block mb-1">Auction name</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1.5">
+                  Auction Name *
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[14px]"
+                  placeholder="e.g. Champions Premier League 2026"
+                  required
+                  className="w-full px-4 py-2.5 rounded-[4px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] text-[14px] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
 
               <div>
-                <label className="text-[12px] font-medium text-[#8B939A] block mb-1">Description</label>
+                <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1.5">
+                  Description
+                </label>
                 <textarea
+                  rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                  className="w-full px-4 py-2.5 rounded-[4px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[12px] font-medium text-[#8B939A] block mb-1">Sport</label>
+                  <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1.5">
+                    Sport
+                  </label>
                   <input
                     type="text"
                     value={sport}
                     onChange={(e) => setSport(e.target.value)}
-                    className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                    className="w-full px-4 py-2 rounded-[4px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                   />
                 </div>
                 <div>
-                  <label className="text-[12px] font-medium text-[#8B939A] block mb-1">Season</label>
+                  <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-1.5">
+                    Season
+                  </label>
                   <input
                     type="text"
                     value={season}
                     onChange={(e) => setSeason(e.target.value)}
-                    className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                    className="w-full px-4 py-2 rounded-[4px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end">
+            <div className="pt-4 border-t border-[#202B38] flex justify-end">
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px]"
+                className="px-6 py-2.5 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] transition-all flex items-center gap-1.5"
               >
-                Continue to teams
+                <span>Continue to Team Configuration</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 2: Teams */}
+        {/* ================================================== */}
+        {/* SECTION 2: TEAM CONFIGURATION */}
+        {/* ================================================== */}
         {currentStep === 2 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
-            <div>
-              <h2 className="text-[18px] font-bold text-[#EDEAE1]">Team participants</h2>
-              <p className="text-[13px] text-[#8B939A]">Set up Team Alpha and Team Beta franchises</p>
+          <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-6 sm:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-[#202B38] pb-4">
+              <span className="text-[11px] font-mono text-[#E5AE3F] uppercase tracking-wider block mb-1">SECTION 02</span>
+              <h2 className="font-hero text-[26px] font-bold text-[#F5F7FA] uppercase tracking-wide">
+                Team Configuration
+              </h2>
+              <p className="text-[13px] text-[#8B98A8]">
+                Set up franchise names and starting budget purse. Budgets are locked once auction commences.
+              </p>
             </div>
 
+            {/* Starting Budget Allocation */}
+            <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-2">
+              <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block">
+                Starting Purse Per Team (INR)
+              </label>
+              <input
+                type="number"
+                step="1000000"
+                value={initialBudget}
+                onChange={(e) => setInitialBudget(parseInt(e.target.value, 10) || 0)}
+                className="w-full px-4 py-2.5 rounded-[4px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-hero text-[20px] tabular-nums focus:outline-none focus:border-[#E5AE3F]"
+              />
+              <span className="text-[12px] text-[#8B98A8]">
+                Each team will start with <strong className="text-[#E5AE3F] font-hero tabular-nums">{formatExactINR(initialBudget)}</strong> ({formatINR(initialBudget)}).
+              </span>
+            </div>
+
+            {/* Teams Setup */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Team A */}
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3" style={{ borderLeft: "3px solid #3E7CB1" }}>
-                <span className="text-[12px] font-bold text-[#3E7CB1]">Team Alpha</span>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-3" style={{ borderLeft: "4px solid #3E7CB1" }}>
+                <span className="text-[12px] font-bold uppercase tracking-wider text-[#3E7CB1] block">
+                  Franchise A (Steel Blue Rail)
+                </span>
                 <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Team name</label>
+                  <label className="text-[11px] text-[#8B98A8] block mb-1 font-semibold">Team Name</label>
                   <input
                     type="text"
                     value={teamAName}
                     onChange={(e) => setTeamAName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#3E7CB1]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Logo URL</label>
+                  <label className="text-[11px] text-[#8B98A8] block mb-1 font-semibold">Logo URL</label>
                   <input
                     type="text"
                     value={teamALogo}
                     onChange={(e) => setTeamALogo(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[12px] focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Team B */}
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3" style={{ borderLeft: "3px solid #B85C38" }}>
-                <span className="text-[12px] font-bold text-[#B85C38]">Team Beta</span>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-3" style={{ borderLeft: "4px solid #B85C38" }}>
+                <span className="text-[12px] font-bold uppercase tracking-wider text-[#B85C38] block">
+                  Franchise B (Burnt Copper Rail)
+                </span>
                 <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Team name</label>
+                  <label className="text-[11px] text-[#8B98A8] block mb-1 font-semibold">Team Name</label>
                   <input
                     type="text"
                     value={teamBName}
                     onChange={(e) => setTeamBName(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#B85C38]"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-[#8B939A] block mb-1">Logo URL</label>
+                  <label className="text-[11px] text-[#8B98A8] block mb-1 font-semibold">Logo URL</label>
                   <input
                     type="text"
                     value={teamBLogo}
                     onChange={(e) => setTeamBLogo(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                    className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[12px] focus:outline-none"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 flex justify-between">
+            <div className="pt-4 border-t border-[#202B38] flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setCurrentStep(1)}
-                className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                className="px-4 py-2 rounded-[4px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px]"
               >
                 Back
               </button>
               <button
                 type="button"
                 onClick={() => setCurrentStep(3)}
-                className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px]"
+                className="px-6 py-2.5 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] transition-all flex items-center gap-1.5"
               >
-                Continue to budgets
+                <span>Continue to Player Configuration</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Budgets */}
+        {/* ================================================== */}
+        {/* SECTION 3: PLAYER CONFIGURATION */}
+        {/* ================================================== */}
         {currentStep === 3 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
-            <div>
-              <h2 className="text-[18px] font-bold text-[#EDEAE1]">Team budgets</h2>
-              <p className="text-[13px] text-[#8B939A]">Set the initial purse. Once the auction starts, budgets are locked.</p>
+          <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-6 sm:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-[#202B38] pb-4">
+              <span className="text-[11px] font-mono text-[#E5AE3F] uppercase tracking-wider block mb-1">SECTION 03</span>
+              <h2 className="font-hero text-[26px] font-bold text-[#F5F7FA] uppercase tracking-wide">
+                Player Configuration ({players.length} Registered Lots)
+              </h2>
+              <p className="text-[13px] text-[#8B98A8]">
+                Select the athlete pool for this auction. The sequence in which players appear is automatically randomized upon launch.
+              </p>
             </div>
 
-            <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3">
-              <div>
-                <label className="text-[12px] font-medium text-[#8B939A] block mb-1">
-                  Initial purse per franchise (INR)
-                </label>
-                <input
-                  type="number"
-                  step="1000000"
-                  value={initialBudget}
-                  onChange={(e) => setInitialBudget(parseInt(e.target.value, 10) || 0)}
-                  className="w-full px-3 py-2 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[18px] tabular-nums"
-                />
+            {/* Automatic Randomization Feature Notice */}
+            <div className="p-3 rounded-[3px] bg-[#070B12] border border-[#202B38] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[12px]">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#E5AE3F] animate-pulse" />
+                <span className="font-semibold text-[#EDEAE1]">AUTOMATIC ORDER:</span>
+                <span className="text-[#8B98A8]">
+                  Player order is randomized automatically via Fisher-Yates shuffle. No manual ordering required.
+                </span>
               </div>
-
-              <div className="text-[13px] text-[#8B939A] pt-1">
-                Formatted allocation: <strong className="text-[#C7A046] font-hero text-[16px] tabular-nums">{formatExactINR(initialBudget)}</strong> ({formatINR(initialBudget)}) per team.
-              </div>
+              <span className="text-[#E5AE3F] font-mono text-[11px] uppercase tracking-wider font-bold">
+                Authoritative Sequence
+              </span>
             </div>
 
-            <div className="pt-4 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(4)}
-                className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px]"
-              >
-                Continue to player pool
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 4: Players */}
-        {currentStep === 4 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-[18px] font-bold text-[#EDEAE1]">Player pool ({players.length} lots)</h2>
-                <p className="text-[13px] text-[#8B939A]">Review and add cricket stars to the queue</p>
-              </div>
-            </div>
-
-            {/* List of current players */}
+            {/* Player List */}
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {players.map((p, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px]"
+                  className="flex items-center justify-between p-3 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[13px]"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="font-hero text-[14px] text-[#8B939A] tabular-nums">#{idx + 1}</span>
-                    <span className="font-semibold text-[#EDEAE1]">{p.name}</span>
-                    <span className="text-[11px] text-[#8B939A]">({p.category})</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-hero text-[13px] font-bold text-[#8B98A8] tabular-nums">POOL</span>
+                    <div>
+                      <span className="font-bold text-[#F5F7FA] mr-2">{p.name}</span>
+                      <span className="text-[11px] text-[#8B98A8]">({p.category})</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="font-hero text-[14px] font-bold text-[#C7A046] tabular-nums">
+                  <div className="flex items-center gap-4">
+                    <span className="font-hero text-[16px] font-bold text-[#E5AE3F] tabular-nums">
                       {formatINR(p.basePrice)}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleRemovePlayer(idx)}
-                      className="p-1 text-[#8B939A] hover:text-red-400"
+                      className="text-[#8B98A8] hover:text-[#FF5C5C] p-1 transition-colors"
+                      title="Remove Player"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -495,21 +590,23 @@ export default function CreateAuctionPage() {
               ))}
             </div>
 
-            {/* Add Player Sub-form */}
-            <form onSubmit={handleAddPlayer} className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-3">
-              <h3 className="text-[13px] font-bold text-[#EDEAE1]">Add custom player</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {/* Add Custom Player Sub-Form */}
+            <form onSubmit={handleAddPlayer} className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-3">
+              <span className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
+                + Register New Player Lot
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
                   type="text"
                   placeholder="Player name (e.g. Glenn Maxwell)"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                  className="px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                 />
                 <select
                   value={newPlayerCategory}
                   onChange={(e) => setNewPlayerCategory(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                  className="px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                 >
                   <option value="Batsman">Batsman</option>
                   <option value="Bowler">Bowler</option>
@@ -521,144 +618,131 @@ export default function CreateAuctionPage() {
                   placeholder="Base Price (e.g. 10000000)"
                   value={newPlayerBasePrice}
                   onChange={(e) => setNewPlayerBasePrice(parseInt(e.target.value, 10) || 0)}
-                  className="px-2.5 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] text-[12px]"
+                  className="px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px] focus:outline-none focus:border-[#E5AE3F]"
                 />
               </div>
 
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="px-3 py-1 bg-[#2B343C] hover:bg-[#8B939A] hover:text-[#10151A] text-[#EDEAE1] text-[12px] font-semibold rounded-[2px]"
+                  className="px-4 py-1.5 rounded-[3px] bg-[#121A24] border border-[#202B38] hover:border-[#E5AE3F] text-[#F5F7FA] text-[12px] font-semibold transition-colors"
                 >
-                  Add player
+                  Add Player
                 </button>
               </div>
             </form>
 
-            <div className="pt-4 flex justify-between">
+            <div className="pt-4 border-t border-[#202B38] flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setCurrentStep(3)}
-                className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                onClick={() => setCurrentStep(2)}
+                className="px-4 py-2 rounded-[4px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px]"
               >
                 Back
               </button>
               <button
                 type="button"
-                onClick={() => setCurrentStep(5)}
-                className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px]"
+                onClick={() => setCurrentStep(4)}
+                className="px-6 py-2.5 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px] hover:bg-[#F4C65E] transition-all flex items-center gap-1.5"
               >
-                Continue to rules
+                <span>Continue to Auction Rules</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* Step 5: Rules */}
-        {currentStep === 5 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
-            <div>
-              <h2 className="text-[18px] font-bold text-[#EDEAE1]">Auction rules & timers</h2>
-              <p className="text-[13px] text-[#8B939A]">Configure countdown clocks, bid increments, and anti-snipe extensions</p>
+        {/* ================================================== */}
+        {/* SECTION 4: AUCTION RULES & LAUNCH */}
+        {/* ================================================== */}
+        {currentStep === 4 && (
+          <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-6 sm:p-8 space-y-6 shadow-xl">
+            <div className="border-b border-[#202B38] pb-4">
+              <span className="text-[11px] font-mono text-[#E5AE3F] uppercase tracking-wider block mb-1">SECTION 04</span>
+              <h2 className="font-hero text-[26px] font-bold text-[#F5F7FA] uppercase tracking-wide">
+                Auction Rules & Final Launch
+              </h2>
+              <p className="text-[13px] text-[#8B98A8]">
+                Configure anti-snipe countdown extensions, minimum increments, and launch the room.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-1">
-                <label className="text-[12px] text-[#8B939A] block">Minimum bid increment (₹)</label>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-1">
+                <label className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
+                  Minimum Bid Increment (INR)
+                </label>
                 <input
                   type="number"
                   step="50000"
                   value={minimumBidIncrement}
                   onChange={(e) => setMinimumBidIncrement(parseInt(e.target.value, 10) || 0)}
-                  className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[16px] tabular-nums"
+                  className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-hero text-[18px] tabular-nums"
                 />
               </div>
 
-              <div className="p-3.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-1">
-                <label className="text-[12px] text-[#8B939A] block">Timer duration (seconds)</label>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-1">
+                <label className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
+                  Timer Countdown Duration (Seconds)
+                </label>
                 <input
                   type="number"
                   min="10"
                   max="120"
                   value={timerDuration}
                   onChange={(e) => setTimerDuration(parseInt(e.target.value, 10) || 30)}
-                  className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[16px] tabular-nums"
+                  className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-hero text-[18px] tabular-nums"
                 />
               </div>
 
-              <div className="p-3.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-1">
-                <label className="text-[12px] text-[#8B939A] block">Anti-snipe threshold (seconds remaining)</label>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-1">
+                <label className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
+                  Anti-Snipe Guard Window (Seconds)
+                </label>
                 <input
                   type="number"
                   min="2"
                   max="30"
                   value={antiSnipeThreshold}
                   onChange={(e) => setAntiSnipeThreshold(parseInt(e.target.value, 10) || 5)}
-                  className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[16px] tabular-nums"
+                  className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-hero text-[18px] tabular-nums"
                 />
+                <span className="text-[11px] text-[#8B98A8]">Bids in last {antiSnipeThreshold}s extend clock.</span>
               </div>
 
-              <div className="p-3.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-1">
-                <label className="text-[12px] text-[#8B939A] block">Anti-snipe extension (seconds added)</label>
+              <div className="p-4 rounded-[4px] bg-[#070B12] border border-[#202B38] space-y-1">
+                <label className="text-[11px] uppercase tracking-wider font-bold text-[#8B98A8] block">
+                  Anti-Snipe Added Extension (Seconds)
+                </label>
                 <input
                   type="number"
                   min="3"
                   max="60"
                   value={antiSnipeExtension}
                   onChange={(e) => setAntiSnipeExtension(parseInt(e.target.value, 10) || 10)}
-                  className="w-full px-3 py-1.5 rounded-[2px] bg-[#161D24] border border-[#2B343C] text-[#EDEAE1] font-hero text-[16px] tabular-nums"
+                  className="w-full px-3 py-2 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] font-hero text-[18px] tabular-nums"
                 />
+                <span className="text-[11px] text-[#8B98A8]">Adds +{antiSnipeExtension}s when triggered.</span>
               </div>
             </div>
 
-            <div className="pt-4 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(4)}
-                className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(6)}
-                className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px]"
-              >
-                Continue to review
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 6: Review & Launch */}
-        {currentStep === 6 && (
-          <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-5">
-            <div>
-              <h2 className="text-[18px] font-bold text-[#EDEAE1]">Review and launch auction room</h2>
-              <p className="text-[13px] text-[#8B939A]">Verify all configurations before creating the room</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2 text-[13px]">
-                <h3 className="font-bold text-[#EDEAE1] border-b border-[#2B343C] pb-1">Auction summary</h3>
-                <p className="text-[#8B939A]">Name: <strong className="text-[#EDEAE1]">{name}</strong></p>
-                <p className="text-[#8B939A]">Franchise budget: <strong className="text-[#C7A046] font-hero tabular-nums">{formatINR(initialBudget)}</strong></p>
-                <p className="text-[#8B939A]">Total player lots: <strong className="text-[#EDEAE1]">{players.length}</strong></p>
-              </div>
-
-              <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2 text-[13px]">
-                <h3 className="font-bold text-[#EDEAE1] border-b border-[#2B343C] pb-1">Teams & rules</h3>
-                <p className="text-[#8B939A]">Team Alpha: <strong className="text-[#3E7CB1]">{teamAName}</strong></p>
-                <p className="text-[#8B939A]">Team Beta: <strong className="text-[#B85C38]">{teamBName}</strong></p>
-                <p className="text-[#8B939A]">Timer: <strong className="text-[#EDEAE1] font-hero tabular-nums">{timerDuration}s</strong> (+{antiSnipeExtension}s extension)</p>
+            {/* Summary Review Card */}
+            <div className="p-4 rounded-[4px] bg-[#121A24] border border-[#202B38] space-y-2 text-[13px]">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-[#E5AE3F] block">
+                Pre-Flight Configuration Summary
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[#8B98A8]">
+                <div>Auction: <strong className="text-[#F5F7FA]">{name}</strong></div>
+                <div>Purse: <strong className="text-[#E5AE3F] font-hero tabular-nums">{formatINR(initialBudget)}</strong></div>
+                <div>Lots: <strong className="text-[#F5F7FA]">{players.length} players</strong></div>
               </div>
             </div>
 
-            <div className="pt-4 flex justify-between">
+            <div className="pt-4 border-t border-[#202B38] flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setCurrentStep(5)}
-                className="px-4 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[13px]"
+                onClick={() => setCurrentStep(3)}
+                className="px-4 py-2 rounded-[4px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] text-[13px]"
               >
                 Back
               </button>
@@ -666,9 +750,16 @@ export default function CreateAuctionPage() {
                 type="button"
                 onClick={handleCreateAuction}
                 disabled={loading}
-                className="px-6 py-2.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-bold text-[14px] hover:bg-white"
+                className="px-8 py-3 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-black text-[15px] hover:bg-[#F4C65E] transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(229,174,63,0.25)]"
               >
-                {loading ? "Creating auction..." : "Launch auction room"}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>LAUNCHING AUCTION ARENA...</span>
+                  </>
+                ) : (
+                  <span>LAUNCH AUCTION ROOM</span>
+                )}
               </button>
             </div>
           </div>

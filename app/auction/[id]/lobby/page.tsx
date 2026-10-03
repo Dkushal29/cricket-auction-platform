@@ -55,15 +55,15 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
   return (
     <div className="max-w-4xl w-full mx-auto p-4 sm:p-8 space-y-6">
       {/* Header card */}
-      <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2B343C] pb-3">
+      <div className="p-6 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#202B38] pb-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-2.5 h-2.5 bg-[#C7A046] rounded-[2px]" />
-              <h1 className="text-[22px] font-bold text-[#EDEAE1]">{auction.name}</h1>
+              <span className="w-2.5 h-2.5 bg-[#E5AE3F] rounded-[2px]" />
+              <h1 className="text-[22px] font-bold text-[#F5F7FA]">{auction.name}</h1>
             </div>
-            <p className="text-[13px] text-[#8B939A]">
-              Room code: <strong className="text-[#EDEAE1]">{auction.roomCode}</strong> &bull; Status: <strong className="text-[#C7A046] font-semibold">{auction.status}</strong>
+            <p className="text-[13px] text-[#8B98A8]">
+              Room code: <strong className="text-[#F5F7FA] tracking-wider">{auction.roomCode}</strong> &bull; Status: <strong className="text-[#E5AE3F] font-semibold">{auction.status}</strong>
             </p>
           </div>
 
@@ -71,97 +71,97 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
             <button
               type="button"
               onClick={() => setShowInviteModal(true)}
-              className="px-3.5 py-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] text-[13px] font-medium flex items-center gap-1.5"
+              className="px-3.5 py-1.5 rounded-[2px] bg-[#121A24] border border-[#202B38] hover:border-[#8B98A8] text-[#F5F7FA] text-[13px] font-medium flex items-center gap-1.5 transition-colors"
             >
-              <Share2 className="w-3.5 h-3.5 text-[#C7A046]" />
+              <Share2 className="w-3.5 h-3.5 text-[#E5AE3F]" />
               <span>Share invites & QR</span>
             </button>
           </div>
         </div>
 
-        <p className="text-[14px] text-[#8B939A]">
+        <p className="text-[14px] text-[#8B98A8]">
           {auction.description || "Official live cricket player auction lobby."}
         </p>
       </div>
 
       {/* Participant Readiness Deck */}
-      <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] space-y-4">
-        <div className="flex items-center justify-between border-b border-[#2B343C] pb-2">
-          <h2 className="text-[15px] font-bold text-[#EDEAE1]">
+      <div className="p-6 rounded-[4px] bg-[#0D131C] border border-[#202B38] space-y-4">
+        <div className="flex items-center justify-between border-b border-[#202B38] pb-2">
+          <h2 className="text-[15px] font-bold text-[#F5F7FA]">
             Connected participants readiness
           </h2>
-          <span className="text-[12px] text-[#8B939A]">
+          <span className="text-[12px] text-[#8B98A8]">
             {spectatorCount} spectator(s) connected
           </span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Team A */}
-          <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "3px solid #3E7CB1" }}>
+          <div className="p-4 rounded-[2px] bg-[#121A24] border border-[#202B38] space-y-2" style={{ borderLeft: "3px solid #3E7CB1" }}>
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-[#3E7CB1] font-bold block">Team Alpha</span>
-                <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamA?.teamName || "Team Alpha"}</h3>
+                <h3 className="text-[15px] font-bold text-[#F5F7FA]">{teamA?.teamName || "Team Alpha"}</h3>
               </div>
               {isTeamAReady ? (
-                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
+                <div className="flex items-center gap-1 text-[12px] text-[#28D17C]">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Ready</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
+                <div className="flex items-center gap-1 text-[12px] text-[#8B98A8]">
                   <Circle className="w-3.5 h-3.5" />
                   <span>Waiting</span>
                 </div>
               )}
             </div>
-            <div className="text-[12px] text-[#8B939A]">
-              Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamA?.initialBudget || 0)}</strong>
+            <div className="text-[12px] text-[#8B98A8]">
+              Purse: <strong className="text-[#F5F7FA] font-hero tabular-nums">{formatINR(teamA?.initialBudget || 0)}</strong>
             </div>
           </div>
 
           {/* Team B */}
-          <div className="p-4 rounded-[2px] bg-[#10151A] border border-[#2B343C] space-y-2" style={{ borderLeft: "3px solid #B85C38" }}>
+          <div className="p-4 rounded-[2px] bg-[#121A24] border border-[#202B38] space-y-2" style={{ borderLeft: "3px solid #B85C38" }}>
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-[#B85C38] font-bold block">Team Beta</span>
-                <h3 className="text-[15px] font-bold text-[#EDEAE1]">{teamB?.teamName || "Team Beta"}</h3>
+                <h3 className="text-[15px] font-bold text-[#F5F7FA]">{teamB?.teamName || "Team Beta"}</h3>
               </div>
               {isTeamBReady ? (
-                <div className="flex items-center gap-1 text-[12px] text-emerald-400">
+                <div className="flex items-center gap-1 text-[12px] text-[#28D17C]">
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Ready</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-[12px] text-[#8B939A]">
+                <div className="flex items-center gap-1 text-[12px] text-[#8B98A8]">
                   <Circle className="w-3.5 h-3.5" />
                   <span>Waiting</span>
                 </div>
               )}
             </div>
-            <div className="text-[12px] text-[#8B939A]">
-              Purse: <strong className="text-[#EDEAE1] font-hero tabular-nums">{formatINR(teamB?.initialBudget || 0)}</strong>
+            <div className="text-[12px] text-[#8B98A8]">
+              Purse: <strong className="text-[#F5F7FA] font-hero tabular-nums">{formatINR(teamB?.initialBudget || 0)}</strong>
             </div>
           </div>
         </div>
 
         {/* Rules Brief */}
-        <div className="p-3.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
+        <div className="p-3.5 rounded-[2px] bg-[#121A24] border border-[#202B38] grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
           <div>
-            <span className="text-[#8B939A] block">Min increment</span>
-            <span className="font-hero text-[15px] font-bold text-[#EDEAE1] tabular-nums">{formatINR(auction.minimumBidIncrement)}</span>
+            <span className="text-[#8B98A8] block">Min increment</span>
+            <span className="font-hero text-[15px] font-bold text-[#F5F7FA] tabular-nums">{formatINR(auction.minimumBidIncrement)}</span>
           </div>
           <div>
-            <span className="text-[#8B939A] block">Lot timer</span>
-            <span className="font-hero text-[15px] font-bold text-[#EDEAE1] tabular-nums">{auction.timerDuration}s</span>
+            <span className="text-[#8B98A8] block">Lot timer</span>
+            <span className="font-hero text-[15px] font-bold text-[#F5F7FA] tabular-nums">{auction.timerDuration}s</span>
           </div>
           <div>
-            <span className="text-[#8B939A] block">Anti-snipe</span>
-            <span className="font-hero text-[15px] font-bold text-[#EDEAE1] tabular-nums">+{auction.antiSnipeExtension}s</span>
+            <span className="text-[#8B98A8] block">Anti-snipe</span>
+            <span className="font-hero text-[15px] font-bold text-[#F5F7FA] tabular-nums">+{auction.antiSnipeExtension}s</span>
           </div>
           <div>
-            <span className="text-[#8B939A] block">Total lots</span>
-            <span className="font-hero text-[15px] font-bold text-[#EDEAE1] tabular-nums">{auction.items?.length || 0} players</span>
+            <span className="text-[#8B98A8] block">Total lots</span>
+            <span className="font-hero text-[15px] font-bold text-[#F5F7FA] tabular-nums">{auction.items?.length || 0} players</span>
           </div>
         </div>
 
@@ -172,14 +172,14 @@ function LobbyContent({ auction }: { auction: ClientAuction }) {
               type="button"
               onClick={handleStartAuction}
               disabled={loading}
-              className="px-6 py-3 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-bold text-[14px] hover:bg-white flex items-center gap-2"
+              className="px-6 py-3 rounded-[2px] bg-[#E5AE3F] text-[#070B12] font-bold text-[14px] hover:bg-[#F4C65E] transition-colors flex items-center gap-2"
             >
               <Play className="w-4 h-4 fill-current" />
               <span>{loading ? "Starting auction..." : auction.status === "READY" ? "Launch live arena" : "Start live auction"}</span>
             </button>
           </div>
         ) : (
-          <div className="p-3 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px] text-[#8B939A] text-center">
+          <div className="p-3 rounded-[2px] bg-[#121A24] border border-[#202B38] text-[13px] text-[#8B98A8] text-center">
             {auction.status === "READY"
               ? "All bidders ready! Waiting for the auctioneer to launch..."
               : "Waiting for all bidders to connect in lobby..."}
@@ -214,19 +214,19 @@ export default function LobbyPage() {
 
   if (loading || !auction) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      <div className="min-h-screen bg-[#070B12] flex items-center justify-center text-[#F5F7FA]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
       </div>
     );
   }
 
   return (
     <SocketProvider auctionId={auctionId}>
-      <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between">
         <RoleSwitcherBar />
         <LobbyContent auction={auction} />
-        <footer className="py-4 border-t border-[#2B343C] text-center text-[12px] text-[#8B939A]">
-          Cricket sports auction broadcast lobby — Room: {auction.roomCode}
+        <footer className="py-4 border-t border-[#202B38] text-center text-[12px] text-[#8B98A8]">
+          BIDXI Cricket Auction Lobby &bull; Room Code: {auction.roomCode}
         </footer>
       </div>
     </SocketProvider>

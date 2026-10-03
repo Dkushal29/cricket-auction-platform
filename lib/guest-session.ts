@@ -44,14 +44,14 @@ export function extractGuestSession(req: Request | NextRequest): GuestSessionPay
   const cookieHeader = req.headers.get("cookie");
   if (cookieHeader) {
     // Check guest_token cookie
-    const guestMatch = cookieHeader.match(/guest_token=([^;]+)/);
+    const guestMatch = cookieHeader.match(/(?:^|;\s*)guest_token=([^;]+)/);
     if (guestMatch && guestMatch[1]) {
       const guest = verifyGuestToken(guestMatch[1]);
       if (guest) return guest;
     }
 
     // Check token cookie (in case client stored it in token)
-    const tokenMatch = cookieHeader.match(/token=([^;]+)/);
+    const tokenMatch = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
     if (tokenMatch && tokenMatch[1]) {
       const guest = verifyGuestToken(tokenMatch[1]);
       if (guest) return guest;

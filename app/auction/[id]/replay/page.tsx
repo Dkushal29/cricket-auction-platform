@@ -133,8 +133,8 @@ export default function AuctionReplayPage() {
 
   if (loading || !auction) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      <div className="min-h-screen bg-[#070B12] flex items-center justify-center text-[#F5F7FA]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
       </div>
     );
   }
@@ -142,27 +142,27 @@ export default function AuctionReplayPage() {
   const currentEvent = events[currentIndex] || events[0];
 
   return (
-    <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
+    <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between">
       {/* Top Header */}
-      <header className="h-14 px-4 sm:px-6 bg-[#1B2229] border-b border-[#2B343C] flex items-center justify-between">
+      <header className="h-14 px-4 sm:px-6 bg-[#0D131C] border-b border-[#202B38] flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => router.push(`/auction/${auctionId}`)}
-            className="p-1.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A]"
+            className="p-1.5 rounded-[2px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-[16px] font-bold text-[#EDEAE1]">Timeline auction replay</h1>
-            <span className="text-[12px] text-[#8B939A]">{auction.name}</span>
+            <h1 className="text-[16px] font-bold text-[#F5F7FA]">Timeline auction replay</h1>
+            <span className="text-[12px] text-[#8B98A8]">{auction.name}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             href={`/auction/${auction.id}/results`}
-            className="px-3 py-1.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[12px]"
+            className="px-3 py-1.5 rounded-[2px] bg-[#E5AE3F] text-[#070B12] hover:bg-[#F4C65E] font-semibold text-[12px] transition-colors"
           >
             Ledger & results
           </Link>
@@ -173,38 +173,38 @@ export default function AuctionReplayPage() {
       <main className="max-w-6xl w-full mx-auto p-4 sm:p-6 flex-1 space-y-5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Spotlight Replay Frame (8 cols) */}
-          <div className="lg:col-span-8 p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] flex flex-col justify-between min-h-[420px]">
-            <div className="flex items-center justify-between border-b border-[#2B343C] pb-3">
-              <span className="text-[13px] text-[#8B939A]">
+          <div className="lg:col-span-8 p-6 rounded-[4px] bg-[#0D131C] border border-[#202B38] flex flex-col justify-between min-h-[420px]">
+            <div className="flex items-center justify-between border-b border-[#202B38] pb-3">
+              <span className="text-[13px] text-[#8B98A8]">
                 Replay frame {currentIndex + 1} of {events.length}
               </span>
-              <span className="font-hero text-[14px] text-[#8B939A] tabular-nums">
+              <span className="font-hero text-[14px] text-[#8B98A8] tabular-nums">
                 {currentEvent ? new Date(currentEvent.timestamp).toLocaleTimeString() : "—"}
               </span>
             </div>
 
             {/* Current Frame Readout */}
             <div className="py-8 text-center space-y-3">
-              <span className="text-[13px] font-bold uppercase tracking-wider text-[#8B939A] block">
+              <span className="text-[13px] font-bold uppercase tracking-wider text-[#8B98A8] block">
                 {currentEvent?.type === "SOLD" ? "DEAL FINALIZED" : currentEvent?.type === "BID" ? "LIVE BID PLACED" : "EVENT"}
               </span>
 
-              <div className="font-hero text-[72px] sm:text-[96px] font-black text-[#C7A046] tabular-nums leading-none">
+              <div className="font-hero text-[72px] sm:text-[96px] font-black text-[#E5AE3F] tabular-nums leading-none">
                 {currentEvent?.amount ? formatExactINR(currentEvent.amount) : currentEvent?.title}
               </div>
 
-              <div className="text-[16px] font-semibold text-[#EDEAE1]">
+              <div className="text-[16px] font-semibold text-[#F5F7FA]">
                 {currentEvent?.playerName && <span>{currentEvent.playerName} • </span>}
-                {currentEvent?.team && <strong className="text-[#EDEAE1]">{currentEvent.team}</strong>}
+                {currentEvent?.team && <strong className="text-[#F5F7FA]">{currentEvent.team}</strong>}
               </div>
 
-              <p className="text-[13px] text-[#8B939A] max-w-md mx-auto">
+              <p className="text-[13px] text-[#8B98A8] max-w-md mx-auto">
                 {currentEvent?.detail}
               </p>
             </div>
 
             {/* Scrubber & Controls */}
-            <div className="space-y-3 border-t border-[#2B343C] pt-4">
+            <div className="space-y-3 border-t border-[#202B38] pt-4">
               {/* Slider */}
               <input
                 type="range"
@@ -212,7 +212,7 @@ export default function AuctionReplayPage() {
                 max={Math.max(0, events.length - 1)}
                 value={currentIndex}
                 onChange={(e) => setCurrentIndex(parseInt(e.target.value, 10))}
-                className="w-full accent-[#C7A046] cursor-pointer"
+                className="w-full accent-[#E5AE3F] cursor-pointer"
               />
 
               {/* Control Buttons */}
@@ -224,7 +224,7 @@ export default function AuctionReplayPage() {
                       setCurrentIndex(0);
                       setIsPlaying(false);
                     }}
-                    className="p-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A]"
+                    className="p-2 rounded-[2px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] transition-colors"
                     title="Reset to beginning"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -233,7 +233,7 @@ export default function AuctionReplayPage() {
                   <button
                     type="button"
                     onClick={() => setIsPlaying(!isPlaying)}
-                    className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-bold text-[13px] hover:bg-white flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-[2px] bg-[#E5AE3F] text-[#070B12] hover:bg-[#F4C65E] font-bold text-[13px] flex items-center gap-1.5 transition-colors"
                   >
                     {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                     <span>{isPlaying ? "Pause" : "Play replay"}</span>
@@ -247,10 +247,10 @@ export default function AuctionReplayPage() {
                       key={spd}
                       type="button"
                       onClick={() => setPlaybackSpeed(spd)}
-                      className={`px-2.5 py-1 rounded-[2px] border text-[12px] font-hero tabular-nums ${
+                      className={`px-2.5 py-1 rounded-[2px] border text-[12px] font-hero tabular-nums transition-colors ${
                         playbackSpeed === spd
-                          ? "bg-[#2B343C] border-[#8B939A] text-[#EDEAE1] font-bold"
-                          : "bg-[#10151A] border-[#2B343C] text-[#8B939A]"
+                          ? "bg-[#202B38] border-[#8B98A8] text-[#F5F7FA] font-bold"
+                          : "bg-[#121A24] border-[#202B38] text-[#8B98A8]"
                       }`}
                     >
                       {spd}x
@@ -262,8 +262,8 @@ export default function AuctionReplayPage() {
           </div>
 
           {/* Event Log Stream (4 cols) */}
-          <div className="lg:col-span-4 p-5 rounded-[4px] bg-[#1B2229] border border-[#2B343C] flex flex-col h-[420px]">
-            <h3 className="text-[14px] font-bold text-[#EDEAE1] pb-2 mb-2 border-b border-[#2B343C]">
+          <div className="lg:col-span-4 p-5 rounded-[4px] bg-[#0D131C] border border-[#202B38] flex flex-col h-[420px]">
+            <h3 className="text-[14px] font-bold text-[#F5F7FA] pb-2 mb-2 border-b border-[#202B38]">
               Timeline event ledger
             </h3>
 
@@ -278,17 +278,17 @@ export default function AuctionReplayPage() {
                   }}
                   className={`w-full p-2 rounded-[2px] border text-left text-[12px] transition-all ${
                     idx === currentIndex
-                      ? "bg-[#10151A] border-[#C7A046] text-[#EDEAE1] font-semibold"
-                      : "bg-[#10151A] border-[#2B343C] text-[#8B939A] hover:text-[#EDEAE1]"
+                      ? "bg-[#121A24] border-[#E5AE3F] text-[#F5F7FA] font-semibold"
+                      : "bg-[#121A24] border-[#202B38] text-[#8B98A8] hover:text-[#F5F7FA]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-[#EDEAE1]">{ev.title}</span>
-                    <span className="font-hero tabular-nums text-[11px] text-[#8B939A]">
+                    <span className="font-medium text-[#F5F7FA]">{ev.title}</span>
+                    <span className="font-hero tabular-nums text-[11px] text-[#8B98A8]">
                       {new Date(ev.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#8B939A] truncate block">{ev.detail}</span>
+                  <span className="text-[11px] text-[#8B98A8] truncate block">{ev.detail}</span>
                 </button>
               ))}
             </div>
@@ -296,8 +296,8 @@ export default function AuctionReplayPage() {
         </div>
       </main>
 
-      <footer className="py-4 border-t border-[#2B343C] text-center text-[12px] text-[#8B939A]">
-        Timeline replay player — Bangalore Premier League 2026
+      <footer className="py-4 border-t border-[#202B38] text-center text-[12px] text-[#8B98A8]">
+        BIDXI Timeline Replay Player &bull; Room Code: {auction.roomCode}
       </footer>
     </div>
   );

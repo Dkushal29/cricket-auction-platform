@@ -124,6 +124,8 @@ export interface ClientAuction {
   currentTimerExpiry?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   participants: ClientParticipant[];
   items: ClientItem[];
   bids?: ClientBid[];

@@ -246,25 +246,25 @@ export default function AuctionArenaPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex flex-col items-center justify-center text-[#EDEAE1] gap-3">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
-        <span className="text-[14px] text-[#8B939A]">Connecting to live stadium broadcast...</span>
+      <div className="min-h-screen bg-[#070B12] flex flex-col items-center justify-center text-[#F5F7FA] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
+        <span className="text-[13px] text-[#8B98A8]">Connecting to live stadium broadcast...</span>
       </div>
     );
   }
 
   if (error || !auction) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex flex-col items-center justify-center p-6 text-center text-[#EDEAE1]">
-        <AlertCircle className="w-10 h-10 text-red-400 mb-3" />
+      <div className="min-h-screen bg-[#070B12] flex flex-col items-center justify-center p-6 text-center text-[#F5F7FA]">
+        <AlertCircle className="w-10 h-10 text-[#FF5C5C] mb-3" />
         <h2 className="text-[20px] font-bold mb-1">Arena unavailable</h2>
-        <p className="text-[#8B939A] text-[14px] mb-4">{error || "Auction not found"}</p>
+        <p className="text-[#8B98A8] text-[14px] mb-4">{error || "Auction not found"}</p>
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-medium text-[14px]"
+          className="px-4 py-2 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px]"
         >
-          Return to lobby
+          Return to home
         </button>
       </div>
     );
@@ -281,7 +281,7 @@ export default function AuctionArenaPage() {
 
   return (
     <SocketProvider auctionId={auctionId} onEvent={handleSocketEvent}>
-      <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between selection:bg-[#E5AE3F] selection:text-[#070B12]">
         {/* Top Demo Persona Switcher */}
         <RoleSwitcherBar />
 
@@ -290,15 +290,15 @@ export default function AuctionArenaPage() {
 
         {/* Pre-Auction Lobby Banner */}
         {(auction.status === "DRAFT" || auction.status === "READY") && (
-          <div className="bg-[#1B2229] border-b border-[#2B343C] px-4 py-2 flex items-center justify-between text-[13px]">
-            <div className="flex items-center gap-2 text-[#8B939A]">
-              <span className="w-2 h-2 rounded-full bg-[#C7A046] animate-pulse" />
+          <div className="bg-[#0D131C] border-b border-[#202B38] px-4 py-2 flex items-center justify-between text-[13px]">
+            <div className="flex items-center gap-2 text-[#8B98A8]">
+              <span className="w-2 h-2 rounded-full bg-[#E5AE3F] animate-pulse" />
               <span>Auction is currently in pre-live state ({auction.status.toLowerCase()}). Waiting for bidders to get ready in lobby.</span>
             </div>
             <button
               type="button"
               onClick={() => router.push(`/auction/${auction.id}/lobby`)}
-              className="px-3 py-1 rounded-[3px] bg-[#C7A046] text-[#10151A] font-semibold text-[12px] hover:bg-[#b58f38] transition-colors"
+              className="px-3 py-1 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[12px] hover:bg-[#F4C65E] transition-colors"
             >
               Open pre-auction lobby
             </button>
@@ -307,23 +307,23 @@ export default function AuctionArenaPage() {
 
         {/* Completed Auction Banner */}
         {auction.status === "COMPLETED" && (
-          <div className="bg-[#1B2229] border-b border-[#2B343C] px-4 py-2 flex items-center justify-between text-[13px]">
-            <div className="flex items-center gap-2 text-[#8B939A]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <div className="bg-[#0D131C] border-b border-[#202B38] px-4 py-2 flex items-center justify-between text-[13px]">
+            <div className="flex items-center gap-2 text-[#8B98A8]">
+              <span className="w-2 h-2 rounded-full bg-[#28D17C]" />
               <span>This auction has concluded. All lot transactions and team squad allocations are permanently finalized.</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => router.push(`/auction/${auction.id}/replay`)}
-                className="px-3 py-1 rounded-[3px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A] font-medium text-[12px] transition-colors"
+                className="px-3 py-1 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] font-medium text-[12px] transition-colors"
               >
                 Watch replay
               </button>
               <button
                 type="button"
                 onClick={() => router.push(`/auction/${auction.id}/results`)}
-                className="px-3 py-1 rounded-[3px] bg-[#C7A046] text-[#10151A] font-semibold text-[12px] hover:bg-[#b58f38] transition-colors"
+                className="px-3 py-1 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[12px] hover:bg-[#F4C65E] transition-colors"
               >
                 View certified ledger
               </button>

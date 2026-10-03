@@ -19,7 +19,7 @@ export function TeamRail({
 }: TeamRailProps) {
   if (!participant) {
     return (
-      <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] p-4 text-[13px] text-[#8B939A] text-center">
+      <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-4 text-[13px] text-[#8B98A8] text-center">
         No team registered
       </div>
     );
@@ -34,24 +34,24 @@ export function TeamRail({
   const remainingPercent = (remainingRatio * 100).toFixed(1);
 
   return (
-    <div className="bg-[#1B2229] border border-[#2B343C] rounded-[4px] flex flex-col justify-between h-full">
+    <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] flex flex-col justify-between h-full shadow-lg">
       {/* Team Header Rail Strip */}
       <div
-        className="p-3.5 border-b border-[#2B343C] flex items-center justify-between"
+        className="p-3.5 border-b border-[#202B38] flex items-center justify-between"
         style={{ borderTop: `3px solid ${teamColor}` }}
       >
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-bold text-[#EDEAE1] leading-tight">
+            <h3 className="text-[15px] font-bold text-[#F5F7FA] leading-tight">
               {participant.teamName}
             </h3>
             {isSelf && (
-              <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#2B343C] text-[#EDEAE1] rounded-[2px]">
+              <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 bg-[#202B38] text-[#F5F7FA] rounded-[2px]">
                 You
               </span>
             )}
           </div>
-          <span className="text-[12px] text-[#8B939A]">
+          <span className="text-[12px] text-[#8B98A8]">
             {participant.user?.name}
           </span>
         </div>
@@ -61,33 +61,33 @@ export function TeamRail({
         />
       </div>
 
-      {/* Budget Depletion Gauge (Primary Visual Read) */}
-      <div className="p-4 border-b border-[#2B343C] bg-[#161D24]">
+      {/* Budget Depletion Gauge */}
+      <div className="p-4 border-b border-[#202B38] bg-[#121A24]">
         <div className="flex items-baseline justify-between mb-1.5">
-          <span className="text-[12px] text-[#8B939A]">
-            Budget available
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B98A8]">
+            Purse Available
           </span>
-          <span className="font-hero text-[18px] font-bold text-[#EDEAE1] tabular-nums">
+          <span className="font-hero text-[18px] font-bold text-[#E5AE3F] tabular-nums">
             {formatINR(remainingBudget)}
           </span>
         </div>
 
-        {/* Horizontal Depletion Bar (Fills with Brass, Empties toward Line) */}
-        <div className="relative w-full h-3.5 bg-[#10151A] border border-[#2B343C] rounded-[2px] overflow-hidden">
+        {/* Horizontal Depletion Bar (Fills with Gold, empties toward border) */}
+        <div className="relative w-full h-3 bg-[#070B12] border border-[#202B38] rounded-[2px] overflow-hidden">
           <div
-            className="h-full bg-[#C7A046] transition-all duration-500 ease-out"
+            className="h-full bg-[#E5AE3F] transition-all duration-500 ease-out"
             style={{ width: `${remainingPercent}%` }}
           />
 
           {/* Tick Marks (25%, 50%, 75%) */}
           <div className="absolute inset-0 flex justify-between px-1 pointer-events-none">
-            <span className="w-px h-full bg-[#2B343C]" style={{ marginLeft: "25%" }} />
-            <span className="w-px h-full bg-[#2B343C]" style={{ marginLeft: "25%" }} />
-            <span className="w-px h-full bg-[#2B343C]" style={{ marginLeft: "25%" }} />
+            <span className="w-px h-full bg-[#202B38]" style={{ marginLeft: "25%" }} />
+            <span className="w-px h-full bg-[#202B38]" style={{ marginLeft: "25%" }} />
+            <span className="w-px h-full bg-[#202B38]" style={{ marginLeft: "25%" }} />
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-[11px] text-[#8B939A] mt-1 font-hero tabular-nums">
+        <div className="flex items-center justify-between text-[11px] text-[#8B98A8] mt-1 font-mono tabular-nums">
           <span>0</span>
           <span>{remainingPercent}% remaining</span>
           <span>{formatINR(initialBudget)}</span>
@@ -96,13 +96,13 @@ export function TeamRail({
 
       {/* Compact Acquired Squad List */}
       <div className="p-3.5 flex-1 flex flex-col">
-        <div className="flex items-center justify-between text-[12px] text-[#8B939A] mb-2 font-medium">
+        <div className="flex items-center justify-between text-[12px] text-[#8B98A8] mb-2 font-medium">
           <span>Acquired ({wonItems.length})</span>
-          <span>Spend: {formatINR(participant.totalSpent)}</span>
+          <span>Spent: {formatINR(participant.totalSpent)}</span>
         </div>
 
         {wonItems.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center p-4 border border-dashed border-[#2B343C] rounded-[2px] text-[12px] text-[#8B939A] text-center">
+          <div className="flex-1 flex items-center justify-center p-4 border border-dashed border-[#202B38] rounded-[2px] text-[12px] text-[#8B98A8] text-center">
             No acquisitions yet
           </div>
         ) : (
@@ -110,13 +110,13 @@ export function TeamRail({
             {wonItems.map((won) => (
               <div
                 key={won.id}
-                className="flex items-center justify-between p-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[13px]"
+                className="flex items-center justify-between p-2 rounded-[2px] bg-[#070B12] border border-[#202B38] text-[13px]"
               >
                 <div className="truncate mr-2">
-                  <span className="font-medium text-[#EDEAE1] block truncate">{won.name}</span>
-                  <span className="text-[11px] text-[#8B939A]">{won.category}</span>
+                  <span className="font-medium text-[#F5F7FA] block truncate">{won.name}</span>
+                  <span className="text-[11px] text-[#8B98A8]">{won.category}</span>
                 </div>
-                <span className="font-hero text-[14px] font-bold text-[#EDEAE1] tabular-nums shrink-0">
+                <span className="font-hero text-[14px] font-bold text-[#E5AE3F] tabular-nums shrink-0">
                   {formatINR(won.winningPrice || 0)}
                 </span>
               </div>

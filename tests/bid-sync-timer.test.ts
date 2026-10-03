@@ -165,6 +165,7 @@ async function runBidSyncTimerTestSuite() {
       role: "BIDDER",
       participantId: participantB.id,
       tokenVersion: `invite_b_${uniqueSuffix}`,
+      name: "Bidder B",
     });
 
     // ----------------------------------------------------

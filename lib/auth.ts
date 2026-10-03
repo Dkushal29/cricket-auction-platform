@@ -31,23 +31,27 @@ export function verifyToken(token: string): JWTPayload | null {
   }
 }
 
-export function extractAuthUser(req: Request | NextRequest): JWTPayload | null {
+export function extractAuthToken(req: Request | NextRequest): string | null {
   const authHeader = req.headers.get("authorization");
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    const token = authHeader.substring(7);
-    return verifyToken(token);
+    return authHeader.substring(7);
   }
 
-  // Check cookies if present
+  // Check cookies if present (with boundary to prevent matching guest_token)
   const cookieHeader = req.headers.get("cookie");
   if (cookieHeader) {
-    const match = cookieHeader.match(/token=([^;]+)/);
+    const match = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
     if (match && match[1]) {
-      return verifyToken(match[1]);
+      return match[1];
     }
   }
 
   return null;
+}
+
+export function extractAuthUser(req: Request | NextRequest): JWTPayload | null {
+  const token = extractAuthToken(req);
+  return token ? verifyToken(token) : null;
 }
 
 /**

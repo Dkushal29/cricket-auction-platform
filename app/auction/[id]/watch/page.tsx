@@ -2,18 +2,19 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ClientAuction, ClientBid, ClientItem } from "@/lib/types";
+import Link from "next/link";
+import { ClientAuction, ClientBid } from "@/lib/types";
 import { SocketProvider } from "@/components/SocketContext";
 import { useAuth } from "@/components/AuthContext";
 import { useToast } from "@/components/ToastNotifications";
-import { AuctionHeader } from "@/components/AuctionHeader";
+import { LiveStatusBadge } from "@/components/LiveStatusBadge";
 import { ItemSpotlight } from "@/components/ItemSpotlight";
 import { TeamRail } from "@/components/TeamRail";
 import { BidTicker } from "@/components/BidTicker";
 import { InviteModal } from "@/components/InviteModal";
-import { calculateAuctionMomentum } from "@/lib/momentum";
 import { soundEngine } from "@/lib/sound-effects";
-import { Eye, Flame, QrCode, Radio, Share2, Sparkles, Loader2, AlertCircle, ArrowLeft } from "lucide-react";
+import { formatExactINR, formatINR } from "@/lib/auction-state";
+import { Radio, QrCode, Loader2, AlertCircle, ArrowLeft, Volume2, VolumeX, Tv } from "lucide-react";
 
 export default function SpectatorWatchPage() {
   const params = useParams();
@@ -32,18 +33,7 @@ export default function SpectatorWatchPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
-
-  // Guest Spectator Name
-  const [spectatorName, setSpectatorName] = useState<string>("");
-  const [hasEnteredName, setHasEnteredName] = useState<boolean>(false);
-
-  useEffect(() => {
-    const savedName = localStorage.getItem("spectator_display_name");
-    if (savedName || user?.name) {
-      setSpectatorName(savedName || user?.name || "Spectator");
-      setHasEnteredName(true);
-    }
-  }, [user]);
+  const [soundOn, setSoundOn] = useState(true);
 
   // Validate Spectator Invite & Establish Session
   const validateInvite = useCallback(async () => {
@@ -99,34 +89,20 @@ export default function SpectatorWatchPage() {
   useEffect(() => {
     validateInvite();
     fetchState();
+    setSoundOn(soundEngine.isEnabled());
   }, [validateInvite, fetchState]);
 
   const handleSocketEvent = useCallback(
     (eventName: string, data: any) => {
       switch (eventName) {
         case "reconnected_sync":
-          // Authoritative state reconciliation upon socket reconnection
           fetchState();
           break;
-
         case "auction_started":
         case "auction_paused":
         case "auction_resumed":
         case "auction_completed":
           setAuction((prev) => (prev ? { ...prev, status: data.status } : null));
-          break;
-        case "re_auction_started":
-          setAuction((prev) => {
-            if (!prev) return null;
-            const updatedItems = prev.items.map((i) =>
-              i.id === data.item.id ? { ...i, ...data.item, status: "ACTIVE" as any, round: 2 } : i
-            );
-            return { ...prev, activeItemId: data.item.id, items: updatedItems };
-          });
-          setBids([]);
-          setSecondsRemaining(15);
-          soundEngine.playNewBid();
-          addToast(`ROUND 2 RE-AUCTION: ${data.item.name} is on stage!`, "brass");
           break;
         case "player_started":
           setAuction((prev) => {
@@ -138,6 +114,7 @@ export default function SpectatorWatchPage() {
           });
           setBids([]);
           setSecondsRemaining(data.secondsRemaining || 15);
+          soundEngine.playNewBid();
           addToast(`Lot #${data.item.orderIndex} ${data.item.name} now on spotlight`, "brass");
           break;
         case "bid_placed":
@@ -167,17 +144,8 @@ export default function SpectatorWatchPage() {
           soundEngine.playSoldFanfare();
           addToast(`Sold to ${data.updatedParticipant.teamName}`, "success");
           break;
-        case "player_final_unsold":
-          setAuction((prev) => {
-            if (!prev) return null;
-            const updatedItems = prev.items.map((i) => (i.id === data.item.id ? { ...i, status: "FINAL_UNSOLD" as any, round: 2 } : i));
-            return { ...prev, activeItemId: null, items: updatedItems };
-          });
-          setSecondsRemaining(null);
-          soundEngine.playUnsoldGavel();
-          addToast(`${data.item?.name || "Player"} passed as FINAL UNSOLD`, "error");
-          break;
         case "player_unsold":
+        case "player_final_unsold":
           setAuction((prev) => {
             if (!prev) return null;
             const finalStatus = data.isFinal || data.item?.status === "FINAL_UNSOLD" ? "FINAL_UNSOLD" : "UNSOLD";
@@ -200,47 +168,32 @@ export default function SpectatorWatchPage() {
           break;
       }
     },
-    [auction?.timerDuration, addToast]
+    [fetchState, addToast]
   );
-
-  const handleSaveSpectatorName = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!spectatorName.trim()) return;
-    localStorage.setItem("spectator_display_name", spectatorName);
-    setHasEnteredName(true);
-  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#C7A046]" />
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-[#E5AE3F]" />
+        <span className="text-[13px] text-[#8B98A8]">Connecting to Spectator Stream...</span>
       </div>
     );
   }
 
-  // Invalid / Expired Invite State
   if (inviteError && !user) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex flex-col items-center justify-center p-6 text-center text-[#EDEAE1]">
-        <div className="p-8 bg-[#1B2229] border border-[#2B343C] rounded-[4px] max-w-md w-full space-y-4">
-          <AlertCircle className="w-12 h-12 text-[#B85C38] mx-auto" />
-          <h2 className="text-[20px] font-bold text-[#EDEAE1]">Spectator Stream Unavailable</h2>
-          <p className="text-[#8B939A] text-[14px]">
-            {inviteError}
-          </p>
-          <p className="text-[12px] text-[#8B939A]">
-            Please request an updated spectator link from the auctioneer.
-          </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="px-4 py-2 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white flex items-center justify-center gap-2 mx-auto"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Return Home</span>
-            </button>
-          </div>
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col items-center justify-center p-6 text-center">
+        <div className="p-8 bg-[#0D131C] border border-[#202B38] rounded-[4px] max-w-md w-full space-y-4">
+          <AlertCircle className="w-10 h-10 text-[#FF5C5C] mx-auto" />
+          <h2 className="text-[20px] font-bold text-[#F5F7FA]">Spectator Stream Unavailable</h2>
+          <p className="text-[#8B98A8] text-[13px]">{inviteError}</p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-[3px] bg-[#E5AE3F] text-[#070B12] font-bold text-[13px]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Return Home</span>
+          </Link>
         </div>
       </div>
     );
@@ -248,11 +201,8 @@ export default function SpectatorWatchPage() {
 
   if (!auction) {
     return (
-      <div className="min-h-screen bg-[#10151A] flex items-center justify-center text-[#EDEAE1]">
-        <div className="text-center space-y-2">
-          <AlertCircle className="w-8 h-8 text-red-400 mx-auto" />
-          <p className="text-[15px]">Auction not found</p>
-        </div>
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex items-center justify-center">
+        <p>Auction not found</p>
       </div>
     );
   }
@@ -261,73 +211,50 @@ export default function SpectatorWatchPage() {
   const highestBid = bids[0];
   const teamA = auction.participants[0] || null;
   const teamB = auction.participants[1] || null;
-  const momentum = calculateAuctionMomentum(bids);
 
   return (
     <SocketProvider auctionId={auctionId} guestToken={guestToken} onEvent={handleSocketEvent}>
-      <div className="min-h-screen bg-[#10151A] text-[#EDEAE1] flex flex-col justify-between">
-        {/* Top Broadcast Bar */}
-        <div className="h-10 px-4 sm:px-6 bg-[#161D24] border-b border-[#2B343C] flex items-center justify-between text-[13px]">
+      <div className="min-h-screen bg-[#070B12] text-[#F5F7FA] flex flex-col justify-between selection:bg-[#E5AE3F] selection:text-[#070B12]">
+        {/* Top Header */}
+        <header className="h-14 px-4 sm:px-6 bg-[#0D131C] border-b border-[#202B38] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span className="font-bold text-[#EDEAE1]">Live spectator broadcast</span>
-            <span className="text-[#8B939A] hidden sm:inline">• Room: {auction.roomCode}</span>
+            <Link href="/" className="flex items-center gap-2 text-[#8B98A8] hover:text-[#F5F7FA] text-[13px]">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Home</span>
+            </Link>
+            <div className="h-4 w-px bg-[#202B38]" />
+            <span className="font-hero text-[18px] font-bold text-[#F5F7FA] tracking-wide truncate max-w-[160px] sm:max-w-none">
+              {auction.name}
+            </span>
+            <LiveStatusBadge status={auction.status} />
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Momentum Indicator */}
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[12px]">
-              <Flame className={`w-3.5 h-3.5 ${momentum.level === "HIGH" ? "text-amber-400" : "text-[#8B939A]"}`} />
-              <span className="text-[#8B939A]">Momentum:</span>
-              <strong className="text-[#EDEAE1]">{momentum.level}</strong>
-            </div>
+            <Link
+              href={`/auction/${auction.id}/bigscreen`}
+              className="px-3 py-1.5 rounded-[4px] bg-[#121A24] border border-[#202B38] hover:border-[#8B98A8] text-[#E5AE3F] text-[12px] font-medium flex items-center gap-1.5"
+            >
+              <Tv className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Big Screen TV</span>
+            </Link>
 
             <button
               type="button"
-              onClick={() => setShowInviteModal(true)}
-              className="px-2.5 py-0.5 rounded-[2px] bg-[#1B2229] border border-[#2B343C] hover:border-[#8B939A] text-[#EDEAE1] text-[12px] flex items-center gap-1.5"
+              onClick={() => {
+                const s = soundEngine.toggle();
+                setSoundOn(s);
+              }}
+              className="p-1.5 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#8B98A8] hover:text-[#F5F7FA]"
+              title="Toggle Audio Chimes"
             >
-              <QrCode className="w-3.5 h-3.5 text-[#C7A046]" />
-              <span>Share QR</span>
+              {soundOn ? <Volume2 className="w-4 h-4 text-[#28D17C]" /> : <VolumeX className="w-4 h-4" />}
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Thin Header */}
-        <AuctionHeader auction={auction} />
-
-        {/* Guest Name Modal if spectator hasn't set display name */}
-        {!hasEnteredName && (
-          <div className="fixed inset-0 z-50 bg-[#10151A]/90 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="p-6 rounded-[4px] bg-[#1B2229] border border-[#2B343C] max-w-sm w-full space-y-4">
-              <div>
-                <h2 className="text-[17px] font-bold text-[#EDEAE1]">Join as spectator</h2>
-                <p className="text-[13px] text-[#8B939A]">Enter your name to watch the live auction</p>
-              </div>
-
-              <form onSubmit={handleSaveSpectatorName} className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Your Name (e.g. Rahul)"
-                  value={spectatorName}
-                  onChange={(e) => setSpectatorName(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 rounded-[2px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] text-[14px]"
-                />
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-[2px] bg-[#EDEAE1] text-[#10151A] font-semibold text-[13px] hover:bg-white"
-                >
-                  Enter broadcast
-                </button>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Main Stage (Stadium Layout) */}
-        <main className="max-w-7xl w-full mx-auto p-3 sm:p-5 flex-1 space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Stadium Stage Layout */}
+        <main className="max-w-7xl w-full mx-auto p-3 sm:p-5 flex-1 flex flex-col justify-center">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
             {/* Team A Rail (3 cols) */}
             <div className="hidden lg:block lg:col-span-3 h-full">
               <TeamRail participant={teamA} items={auction.items} variant="team-a" />

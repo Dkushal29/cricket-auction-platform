@@ -7,7 +7,7 @@ import { LiveStatusBadge } from "./LiveStatusBadge";
 import { useAuctionSocket } from "./SocketContext";
 import { InviteModal } from "./InviteModal";
 import { soundEngine } from "@/lib/sound-effects";
-import { Users, Wifi, WifiOff, FileSpreadsheet, Share2, BarChart2, History, Tv, Volume2, VolumeX } from "lucide-react";
+import { Users, Wifi, WifiOff, FileSpreadsheet, Share2, BarChart2, Tv, Volume2, VolumeX, Settings } from "lucide-react";
 
 export function AuctionHeader({ auction }: { auction: ClientAuction }) {
   const { connected, spectatorCount } = useAuctionSocket();
@@ -25,39 +25,39 @@ export function AuctionHeader({ auction }: { auction: ClientAuction }) {
 
   return (
     <>
-      <header className="h-14 px-3 sm:px-6 bg-[#1B2229] border-b border-[#2B343C] flex items-center justify-between">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Link href="/" className="flex items-center gap-2 text-[#EDEAE1] hover:text-white font-semibold text-[14px] sm:text-[15px]">
-            <span className="w-2.5 h-2.5 bg-[#C7A046] rounded-[2px]" />
-            <span className="truncate max-w-[140px] sm:max-w-none">{auction.name}</span>
+      <header className="h-14 px-3 sm:px-6 bg-[#0D131C] border-b border-[#202B38] flex items-center justify-between">
+        <div className="flex items-center gap-2.5 sm:gap-4">
+          <Link href="/" className="flex items-center gap-2 text-[#F5F7FA] hover:text-[#E5AE3F] font-bold text-[14px] sm:text-[15px] transition-colors">
+            <span className="text-[16px]">🏏</span>
+            <span className="truncate max-w-[140px] sm:max-w-none font-hero text-[18px] tracking-wide">{auction.name}</span>
           </Link>
           <LiveStatusBadge status={auction.status} />
           {auction.roomCode && (
-            <span className="hidden xl:inline text-[12px] font-mono text-[#8B939A] bg-[#10151A] px-2 py-0.5 rounded-[2px] border border-[#2B343C]">
-              {auction.roomCode}
+            <span className="hidden xl:inline text-[11px] font-mono text-[#8B98A8] bg-[#070B12] px-2 py-0.5 rounded-[2px] border border-[#202B38]">
+              ROOM: {auction.roomCode}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 text-[13px] text-[#8B939A]">
+        <div className="flex items-center gap-2 sm:gap-3 text-[13px] text-[#8B98A8]">
           {/* Spectator Count */}
-          <div className="flex items-center gap-1.5 pr-1.5">
-            <Users className="w-3.5 h-3.5 text-[#8B939A]" />
-            <span className="font-hero text-[15px] font-bold text-[#EDEAE1] tabular-nums">{spectatorCount}</span>
-            <span className="hidden md:inline">watching</span>
+          <div className="flex items-center gap-1.5 pr-1">
+            <Users className="w-3.5 h-3.5 text-[#8B98A8]" />
+            <span className="font-hero text-[16px] font-bold text-[#F5F7FA] tabular-nums">{spectatorCount}</span>
+            <span className="hidden md:inline text-[12px]">spectators</span>
           </div>
 
           {/* Connection Status */}
-          <div className="hidden sm:flex items-center gap-1.5 px-2 border-l border-[#2B343C]">
+          <div className="hidden sm:flex items-center gap-1.5 px-2 border-l border-[#202B38]">
             {connected ? (
               <>
-                <Wifi className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[#EDEAE1] hidden lg:inline">Live sync</span>
+                <Wifi className="w-3.5 h-3.5 text-[#28D17C]" />
+                <span className="text-[#F5F7FA] text-[11px] hidden lg:inline font-mono">SYNC</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-3.5 h-3.5 text-red-400" />
-                <span className="text-red-300">Reconnecting</span>
+                <WifiOff className="w-3.5 h-3.5 text-[#FF5C5C]" />
+                <span className="text-[#FF5C5C] text-[11px] font-mono">RECONNECTING</span>
               </>
             )}
           </div>
@@ -66,55 +66,54 @@ export function AuctionHeader({ auction }: { auction: ClientAuction }) {
           <button
             type="button"
             onClick={handleToggleSound}
-            className={`p-1.5 sm:px-2 sm:py-1 rounded-[4px] border text-[12px] flex items-center gap-1.5 transition-colors ${
+            className={`p-1.5 sm:px-2 sm:py-1 rounded-[3px] border text-[12px] flex items-center gap-1.5 transition-colors ${
               soundOn
-                ? "bg-[#10151A] border-[#2B343C] text-[#EDEAE1] hover:border-[#8B939A]"
-                : "bg-[#10151A] border-[#2B343C] text-[#8B939A] hover:text-[#EDEAE1]"
+                ? "bg-[#070B12] border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8]"
+                : "bg-[#070B12] border-[#202B38] text-[#8B98A8] hover:text-[#F5F7FA]"
             }`}
-            title={soundOn ? "Mute live auction audio" : "Enable live auction audio"}
+            title={soundOn ? "Mute sound" : "Enable sound"}
           >
-            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-[#C7A046]" /> : <VolumeX className="w-3.5 h-3.5 text-[#8B939A]" />}
-            <span className="hidden lg:inline">{soundOn ? "Sound on" : "Sound off"}</span>
+            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-[#28D17C]" /> : <VolumeX className="w-3.5 h-3.5 text-[#8B98A8]" />}
+            <span className="hidden lg:inline">{soundOn ? "Audio On" : "Muted"}</span>
           </button>
 
-          {/* Big Screen Presentation Mode */}
+          {/* Auctioneer Control Deck Link */}
           <Link
-            href={`/auction/${auction.id}/bigscreen`}
-            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-[4px] bg-[#10151A] border border-[#2B343C] text-[#C7A046] hover:border-[#C7A046] text-[13px] font-medium transition-colors"
-            title="Launch Stadium TV / Big Screen Broadcast View"
+            href={`/auction/${auction.id}/control`}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#F5F7FA] hover:border-[#E5AE3F] text-[12px] font-medium transition-colors"
+            title="Auctioneer Command Deck"
           >
-            <Tv className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Big screen</span>
+            <Settings className="w-3.5 h-3.5 text-[#E5AE3F]" />
+            <span>Deck</span>
           </Link>
 
-          {/* Invite & QR */}
+          {/* Big Screen Presentation */}
+          <Link
+            href={`/auction/${auction.id}/bigscreen`}
+            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-[3px] bg-[#121A24] border border-[#202B38] text-[#E5AE3F] hover:border-[#E5AE3F] text-[12px] font-medium transition-colors"
+            title="Stadium TV Broadcast View"
+          >
+            <Tv className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Big Screen</span>
+          </Link>
+
+          {/* Invite Modal */}
           <button
             type="button"
             onClick={() => setShowInviteModal(true)}
-            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-[4px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:text-white hover:border-[#8B939A] text-[13px] font-medium transition-colors"
-            title="Invite Bidders & Spectators via Link or QR Code"
+            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] text-[12px] font-medium transition-colors"
           >
-            <Share2 className="w-3.5 h-3.5" />
+            <Share2 className="w-3.5 h-3.5 text-[#E5AE3F]" />
             <span className="hidden sm:inline">Invite</span>
           </button>
 
-          {/* War Room */}
-          <Link
-            href={`/auction/${auction.id}/war-room`}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:text-white hover:border-[#8B939A] text-[13px] font-medium transition-colors"
-            title="War Room & Analytics"
-          >
-            <BarChart2 className="w-3.5 h-3.5 text-[#3E7CB1]" />
-            <span>War room</span>
-          </Link>
-
-          {/* Export / Ledger */}
+          {/* Ledger */}
           <Link
             href={`/auction/${auction.id}/results`}
-            className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1 rounded-[4px] bg-[#10151A] border border-[#2B343C] text-[#EDEAE1] hover:text-white hover:border-[#8B939A] text-[13px] font-medium transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#070B12] border border-[#202B38] text-[#F5F7FA] hover:border-[#8B98A8] text-[12px] font-medium transition-colors"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-[#C7A046]" />
-            <span className="hidden sm:inline">Ledger</span>
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[#4DA3FF]" />
+            <span>Ledger</span>
           </Link>
         </div>
       </header>

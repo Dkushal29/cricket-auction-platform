@@ -42,10 +42,10 @@ export function RoleSwitcherBar({ isLandingPage = false }: { isLandingPage?: boo
   ];
 
   return (
-    <div className="bg-[#10151A] border-b border-[#2B343C] px-4 py-1.5 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[13px]">
+    <div className="bg-[#070B12] border-b border-[#202B38] px-4 py-1.5 sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-[12px]">
         <div className="flex items-center gap-2">
-          <span className="text-[#8B939A] font-medium text-[12px]">Role view:</span>
+          <span className="text-[#8B98A8] font-bold text-[11px] uppercase tracking-wider">Simulate Role:</span>
           <div className="flex flex-wrap items-center gap-1.5">
             {accounts.map((acc) => {
               const Icon = acc.icon;
@@ -55,15 +55,15 @@ export function RoleSwitcherBar({ isLandingPage = false }: { isLandingPage?: boo
                   key={acc.email}
                   type="button"
                   onClick={() => switchUserRole(acc.email)}
-                  className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-[2px] border text-[12px] font-medium transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-[3px] border text-[11px] font-semibold transition-all ${
                     isActive
-                      ? "border-[#EDEAE1] bg-[#1B2229] text-[#EDEAE1] font-semibold"
-                      : "border-[#2B343C] bg-[#10151A] text-[#8B939A] hover:text-[#EDEAE1] hover:border-[#8B939A]"
+                      ? "border-[#E5AE3F] bg-[#121A24] text-[#F5F7FA]"
+                      : "border-[#202B38] bg-[#0D131C] text-[#8B98A8] hover:text-[#F5F7FA] hover:border-[#8B98A8]"
                   }`}
                 >
                   <Icon className="w-3 h-3" />
                   <span>{acc.name}</span>
-                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#28D17C]" />}
                 </button>
               );
             })}
@@ -72,18 +72,18 @@ export function RoleSwitcherBar({ isLandingPage = false }: { isLandingPage?: boo
 
         <div className="flex items-center gap-3 text-[12px]">
           {user ? (
-            <div className="flex items-center gap-2 text-[#8B939A]">
-              <span>Active: <strong className="text-[#EDEAE1] font-medium">{user.name}</strong></span>
+            <div className="flex items-center gap-2 text-[#8B98A8]">
+              <span>Active: <strong className="text-[#F5F7FA] font-semibold">{user.name}</strong></span>
               <button
                 type="button"
                 onClick={logout}
-                className="text-[#8B939A] hover:text-red-300 underline"
+                className="text-[#8B98A8] hover:text-[#FF5C5C] underline"
               >
                 Sign out
               </button>
             </div>
           ) : (
-            <span className="text-[#C7A046]">Select a role above to simulate</span>
+            <span className="text-[#E5AE3F] font-medium">Select a role above to test live bidding</span>
           )}
         </div>
       </div>

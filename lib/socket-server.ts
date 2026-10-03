@@ -208,9 +208,9 @@ export function initSocketServer(httpServer: HttpServer): SocketIOServer {
 
     if (!token && socket.handshake.headers?.cookie) {
       const cookieHeader = socket.handshake.headers.cookie;
-      const guestMatch = cookieHeader.match(/guest_token=([^;]+)/);
-      const userMatch = cookieHeader.match(/token=([^;]+)/);
-      token = guestMatch?.[1] || userMatch?.[1] || "";
+      const guestMatch = cookieHeader.match(/(?:^|;\s*)guest_token=([^;]+)/);
+      const userMatch = cookieHeader.match(/(?:^|;\s*)token=([^;]+)/);
+      token = userMatch?.[1] || guestMatch?.[1] || "";
     }
 
     if (token) {

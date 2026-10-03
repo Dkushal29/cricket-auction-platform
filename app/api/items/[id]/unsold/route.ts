@@ -32,7 +32,15 @@ export async function POST(
       return NextResponse.json({ error: `ITEM_NOT_ACTIVE: Item cannot be marked unsold because status is already '${item.status}'` }, { status: 400 });
     }
 
-    const result = await finalizeOrUnsoldLot(item.auctionId, itemId, user.userId);
+    let autoAdvance = true;
+    try {
+      const body = await req.json().catch(() => null);
+      if (body && typeof body.autoAdvance === "boolean") {
+        autoAdvance = body.autoAdvance;
+      }
+    } catch {}
+
+    const result = await finalizeOrUnsoldLot(item.auctionId, itemId, user.userId, { autoAdvance });
 
     return NextResponse.json({
       success: true,

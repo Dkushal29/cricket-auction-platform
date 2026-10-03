@@ -1,190 +1,122 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { Zap, Shield, Tv, Trophy, Search, Radio, ChevronRight } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 interface HeroProps {
   onOpenJoinModal: () => void;
 }
 
 export function Hero({ onOpenJoinModal }: HeroProps) {
-  const trustBullets = [
-    {
-      icon: Zap,
-      title: "Real-Time Bidding",
-      subtitle: "<50ms socket engine",
-      color: "#D9A94E",
-    },
-    {
-      icon: Shield,
-      title: "Secure Private Rooms",
-      subtitle: "Encrypted invite tokens",
-      color: "#3E7CB1",
-    },
-    {
-      icon: Tv,
-      title: "Works on All Devices",
-      subtitle: "TV scoreboard & mobile PWA",
-      color: "#B85C38",
-    },
-    {
-      icon: Trophy,
-      title: "Built for Cricket Fans",
-      subtitle: "IPL & club rules supported",
-      color: "#D9A94E",
-    },
-  ];
-
   return (
-    <section className="relative pt-8 pb-16 md:pt-12 md:pb-24 overflow-hidden">
-      {/* Background Stadium Glow Elements */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(217,169,78,0.15),transparent_70%)] pointer-events-none" />
+    <section className="relative w-full min-h-[90vh] md:min-h-[92vh] flex flex-col justify-center overflow-hidden bg-[#070B12]">
+      {/* 1. BACKGROUND LAYER (Pure CSS background-image, NOT an <img> element) */}
+      <div
+        className="absolute inset-0 z-0 pointer-events-none select-none"
+        style={{
+          backgroundImage: "url('/images/cricket-auction-hero.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+        aria-hidden="true"
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="flex flex-col items-center text-center space-y-6 max-w-4xl mx-auto">
-          {/* Live Status Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#131A22] border border-[#232C36] text-[12px] text-[#8B93A0] shadow-md animate-in fade-in slide-in-from-top-3 duration-500">
-            <span className="w-2 h-2 rounded-full bg-[#34D399] animate-pulse" />
-            <span className="text-[#F5F3EE] font-medium">Multiplayer Real-Time Cricket Auction Platform</span>
+      {/* 2. LAYERED GRADIENT OVERLAY (ABOVE image, BELOW content) */}
+      {/* Desktop / Tablet horizontal gradient: solid dark on left, revealing stadium on right */}
+      <div
+        className="absolute inset-0 z-[1] hidden sm:block pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(5, 9, 15, 0.96) 0%, rgba(5, 9, 15, 0.88) 40%, rgba(5, 9, 15, 0.55) 70%, rgba(5, 9, 15, 0.35) 100%)",
+        }}
+        aria-hidden="true"
+      />
+      {/* Mobile overlay with enhanced readability */}
+      <div
+        className="absolute inset-0 z-[1] sm:hidden pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(5, 9, 15, 0.88) 0%, rgba(5, 9, 15, 0.94) 55%, rgba(7, 11, 18, 0.98) 100%)",
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Subtle bottom gradient to blend image into the page */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-28 z-[2] pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to top, #070B12 0%, rgba(7, 11, 18, 0.8) 50%, transparent 100%)",
+        }}
+        aria-hidden="true"
+      />
+
+      {/* 3. CONTENT LAYER (position: relative; z-index: 10) */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24 flex items-center">
+        <div className="w-full max-w-[650px] space-y-6 sm:space-y-7 text-center sm:text-left">
+          {/* Top Outlined Live Badge */}
+          <div className="flex sm:justify-start justify-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[4px] bg-[#0D131C]/90 border border-[#202B38] text-[11px] font-semibold tracking-wider text-[#8B98A8] backdrop-blur-xs">
+              <span className="w-2 h-2 rounded-full bg-[#28D17C] animate-pulse" />
+              <span className="text-[#F5F7FA] uppercase tracking-widest font-mono">
+                LIVE CRICKET AUCTIONS
+              </span>
+            </div>
           </div>
 
-          {/* Cinematic Condensed Headline */}
+          {/* Main Heading: Condensed Sports Display Font */}
           <div className="space-y-1 sm:space-y-2">
-            <h1 className="font-hero text-[48px] sm:text-[72px] md:text-[88px] font-extrabold text-[#F5F3EE] leading-[0.92] tracking-tight uppercase">
-              YOUR AUCTION. YOUR RULES.
+            <h1 className="font-hero text-[46px] sm:text-[64px] md:text-[76px] lg:text-[84px] font-black leading-[0.92] tracking-tight uppercase text-[#F5F7FA]">
+              RUN YOUR AUCTION.
             </h1>
-            <h2 className="font-hero text-[44px] sm:text-[68px] md:text-[84px] font-black text-[#D9A94E] leading-[0.92] tracking-tight uppercase">
-              LIVE IN REAL TIME.
+            <h2 className="font-hero text-[44px] sm:text-[62px] md:text-[74px] lg:text-[82px] font-black leading-[0.92] tracking-tight uppercase text-[#E5AE3F]">
+              OWN EVERY BID.
             </h2>
           </div>
 
-          {/* Subheadline */}
-          <p className="text-[15px] sm:text-[18px] text-[#8B93A0] leading-relaxed max-w-2xl mx-auto">
-            Create a private cricket auction, invite your friends as bidders, and conduct every lot in real time with authoritative stadium scoreboard telemetry.
+          {/* Short Description */}
+          <p className="text-[15px] sm:text-[17px] text-[#8B98A8] leading-relaxed max-w-[580px] sm:mx-0 mx-auto">
+            Create and manage real-time cricket auctions with synchronized bidding, teams and live results.
           </p>
 
-          {/* CTAs */}
-          <div className="pt-2 flex flex-wrap items-center justify-center gap-3.5 w-full sm:w-auto">
+          {/* Primary Action Buttons */}
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-start justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+            {/* Create Auction */}
             <Link
               href="/create-auction"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-[4px] bg-[#D9A94E] hover:bg-[#B9862E] text-[#0A0F16] font-bold text-[15px] transition-all shadow-[0_0_20px_rgba(217,169,78,0.25)] flex items-center justify-center gap-2.5 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#D9A94E]"
+              className="px-7 py-3.5 rounded-[4px] bg-[#E5AE3F] hover:bg-[#F4C65E] text-[#070B12] font-bold text-[14px] sm:text-[15px] transition-all duration-200 shadow-[0_0_24px_rgba(229,174,63,0.25)] hover:shadow-[0_0_32px_rgba(244,198,94,0.35)] flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#E5AE3F]"
             >
-              <Zap className="w-4 h-4 fill-current" />
-              <span>Create Auction</span>
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Create Auction</span>
             </Link>
 
+            {/* Join with Code */}
             <button
               type="button"
               onClick={onOpenJoinModal}
-              className="w-full sm:w-auto px-8 py-3.5 rounded-[4px] bg-[#131A22] border border-[#232C36] hover:border-[#D9A94E]/60 text-[#F5F3EE] font-semibold text-[15px] transition-all flex items-center justify-center gap-2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#D9A94E]"
+              className="px-7 py-3.5 rounded-[4px] bg-[#0D131C]/90 hover:bg-[#121A24] border border-[#202B38] hover:border-[#8B98A8] text-[#F5F7FA] font-semibold text-[14px] sm:text-[15px] transition-all duration-200 flex items-center justify-center gap-2 hover:-translate-y-0.5 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[#E5AE3F]/50"
             >
-              <Search className="w-4 h-4 text-[#D9A94E]" />
+              <Search className="w-4 h-4 text-[#E5AE3F]" />
               <span>Join with Code</span>
             </button>
           </div>
 
-          {/* 4 Trust Bullets Row */}
-          <div className="pt-8 w-full grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
-            {trustBullets.map((bullet, idx) => {
-              const Icon = bullet.icon;
-              return (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-[4px] bg-[#131A22]/80 border border-[#232C36] flex items-center gap-3 backdrop-blur-xs"
-                >
-                  <div
-                    className="w-8 h-8 rounded-[3px] bg-[#0A0F16] border border-[#232C36] flex items-center justify-center shrink-0"
-                    style={{ color: bullet.color }}
-                  >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[13px] font-bold text-[#F5F3EE] block truncate">
-                      {bullet.title}
-                    </span>
-                    <span className="text-[11px] text-[#8B93A0] block truncate">
-                      {bullet.subtitle}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Hero Cinematic Stadium Visual Showcase */}
-        <div className="mt-12 sm:mt-16 relative rounded-[6px] overflow-hidden border border-[#232C36] shadow-2xl bg-[#131A22]">
-          {/* Top Window Bar */}
-          <div className="h-10 px-4 bg-[#0A0F16] border-b border-[#232C36] flex items-center justify-between text-[12px]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-              <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
-              <span className="text-[#8B93A0] font-mono text-[11px] ml-2 hidden sm:inline">
-                stadium-broadcast-arena.cricket
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-[#8B93A0]">
-              <span className="flex items-center gap-1 text-[11px]">
-                <Radio className="w-3 h-3 text-[#34D399] animate-pulse" />
-                <span className="text-[#F5F3EE] font-medium">LIVE 1080p FEED</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Hero Image Container */}
-          <div className="relative aspect-16/9 w-full max-h-[540px]">
-            <Image
-              src="/images/hero-stadium.jpg"
-              alt="Floodlit cricket stadium at night with blazing spotlights and scoreboard atmosphere"
-              fill
-              priority
-              sizes="(max-width: 1280px) 100vw, 1280px"
-              className="object-cover object-center"
-            />
-            {/* Cinematic Gradient Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0F16] via-transparent to-transparent opacity-90" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0A0F16]/60 via-transparent to-[#0A0F16]/60" />
-
-            {/* In-Frame Live Stadium Overlay Elements */}
-            <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6 flex flex-wrap items-end justify-between gap-4">
-              <div className="p-3.5 sm:p-4 rounded-[4px] bg-[#131A22]/90 border border-[#232C36] backdrop-blur-md max-w-sm">
-                <div className="flex items-center justify-between gap-4 border-b border-[#232C36] pb-2 mb-2">
-                  <span className="text-[11px] uppercase tracking-wider text-[#8B93A0] font-semibold">
-                    Current Spotlight Lot
-                  </span>
-                  <span className="font-hero text-[14px] font-bold text-[#D9A94E]">
-                    LOT #01
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-6">
-                  <div>
-                    <span className="text-[14px] font-bold text-[#F5F3EE] block">
-                      Premier All-Rounder
-                    </span>
-                    <span className="text-[11px] text-[#8B93A0]">
-                      Base Price: ₹2.00 Cr
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-[#8B93A0] block">CURRENT BID</span>
-                    <span className="font-hero text-[26px] sm:text-[32px] font-bold text-[#D9A94E] tabular-nums leading-none">
-                      ₹8.50 Cr
-                    </span>
-                  </div>
-                </div>
+          {/* Feature Strip (3 Capabilities with Subtle Bullet Separators) */}
+          <div className="pt-6 sm:pt-7 border-t border-[#202B38]/80 max-w-[650px]">
+            <div className="flex flex-wrap items-center sm:justify-start justify-center gap-3 sm:gap-5 text-[11px] sm:text-[12px] font-bold uppercase tracking-wider text-[#8B98A8]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#E5AE3F] text-[13px]">•</span>
+                <span className="text-[#F5F7FA]">REAL-TIME BIDDING</span>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Link
-                  href="/create-auction"
-                  className="px-4 py-2 rounded-[3px] bg-[#D9A94E] text-[#0A0F16] text-[13px] font-bold hover:bg-[#B9862E] transition-all flex items-center gap-1.5 shadow-lg"
-                >
-                  <span>Launch Live Arena</span>
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#E5AE3F] text-[13px]">•</span>
+                <span className="text-[#F5F7FA]">MULTI-TEAM</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[#E5AE3F] text-[13px]">•</span>
+                <span className="text-[#F5F7FA]">LIVE CONTROL</span>
               </div>
             </div>
           </div>

@@ -125,7 +125,6 @@ async function runReconnectionSyncTests() {
     const guestTokenA = createGuestToken({
       isGuest: true,
       auctionId: auction.id,
-      roomCode: auction.roomCode,
       role: "BIDDER",
       teamSlot: "A",
       participantId: partA.id,

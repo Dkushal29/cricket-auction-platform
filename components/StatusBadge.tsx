@@ -22,46 +22,46 @@ interface StatusBadgeProps {
 export function StatusBadge({ status, size = "md", className = "" }: StatusBadgeProps) {
   const upperStatus = (status || "").toUpperCase();
 
-  let colorStyle = "bg-[#161D24] border-[#2B343C] text-[#8B939A]";
+  let colorStyle = "bg-[#121A24] border-[#202B38] text-[#8B98A8]";
   let label = upperStatus;
   let pulseDot = false;
 
   switch (upperStatus) {
     case "LIVE":
-      colorStyle = "bg-[#10151A] border-[#C7A046] text-[#C7A046]";
+      colorStyle = "bg-[#28D17C]/10 border-[#28D17C]/40 text-[#28D17C]";
       label = "LIVE BROADCAST";
       pulseDot = true;
       break;
     case "READY":
-      colorStyle = "bg-[#10151A] border-emerald-500/50 text-emerald-400";
+      colorStyle = "bg-[#28D17C]/10 border-[#28D17C]/30 text-[#28D17C]";
       label = "READY TO START";
       break;
     case "DRAFT":
-      colorStyle = "bg-[#10151A] border-[#2B343C] text-[#8B939A]";
+      colorStyle = "bg-[#0D131C] border-[#202B38] text-[#8B98A8]";
       label = "SETUP DRAFT";
       break;
     case "PAUSED":
-      colorStyle = "bg-[#10151A] border-amber-500/50 text-amber-400";
+      colorStyle = "bg-[#E5AE3F]/10 border-[#E5AE3F]/40 text-[#E5AE3F]";
       label = "PAUSED";
       break;
     case "COMPLETED":
-      colorStyle = "bg-[#10151A] border-blue-500/50 text-blue-400";
+      colorStyle = "bg-[#4DA3FF]/10 border-[#4DA3FF]/40 text-[#4DA3FF]";
       label = "COMPLETED";
       break;
     case "CANCELLED":
-      colorStyle = "bg-[#10151A] border-red-500/50 text-red-400";
+      colorStyle = "bg-[#FF5C5C]/10 border-[#FF5C5C]/40 text-[#FF5C5C]";
       label = "CANCELLED";
       break;
     case "SOLD":
-      colorStyle = "bg-[#C7A046]/15 border-[#C7A046] text-[#C7A046]";
+      colorStyle = "bg-[#E5AE3F]/15 border-[#E5AE3F] text-[#E5AE3F]";
       label = "SOLD";
       break;
     case "UNSOLD":
-      colorStyle = "bg-[#10151A] border-[#2B343C] text-[#8B939A]";
+      colorStyle = "bg-[#0D131C] border-[#202B38] text-[#8B98A8]";
       label = "UNSOLD (POOL)";
       break;
     case "FINAL_UNSOLD":
-      colorStyle = "bg-[#10151A] border-[#B85C38] text-[#B85C38]";
+      colorStyle = "bg-[#FF5C5C]/10 border-[#FF5C5C]/30 text-[#FF5C5C]";
       label = "FINAL UNSOLD";
       break;
   }
@@ -79,8 +79,8 @@ export function StatusBadge({ status, size = "md", className = "" }: StatusBadge
     >
       {pulseDot && (
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C7A046] opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#C7A046]"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#28D17C] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#28D17C]"></span>
         </span>
       )}
       <span>{label}</span>

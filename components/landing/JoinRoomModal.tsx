@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ToastNotifications";
-import { X, Search, ArrowRight, Loader2 } from "lucide-react";
+import { X, Search, Loader2 } from "lucide-react";
 
 interface JoinRoomModalProps {
   isOpen: boolean;
@@ -27,13 +27,13 @@ export function JoinRoomModal({ isOpen, onClose }: JoinRoomModalProps) {
       const res = await fetch("/api/auctions/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: roomCodeInput }),
+        body: JSON.stringify({ code: roomCodeInput.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || "Auction room not found");
       }
-      addToast(`Joining "${data.auction.name}"...`, "brass");
+      addToast(`Entering "${data.auction.name}"...`, "brass");
       onClose();
       router.push(data.redirectUrl || `/auction/${data.auction.id}`);
     } catch (err: any) {
@@ -44,19 +44,19 @@ export function JoinRoomModal({ isOpen, onClose }: JoinRoomModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0A0F16]/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-[#131A22] border border-[#232C36] rounded-[4px] p-6 max-w-md w-full space-y-4 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#232C36] pb-3">
+    <div className="fixed inset-0 z-50 bg-[#070B12]/85 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-[#0D131C] border border-[#202B38] rounded-[4px] p-6 sm:p-8 max-w-md w-full space-y-5 shadow-2xl relative">
+        <div className="flex items-center justify-between border-b border-[#202B38] pb-3">
           <div className="flex items-center gap-2">
-            <Search className="w-4 h-4 text-[#D9A94E]" />
-            <h3 className="text-[16px] font-bold text-[#F5F3EE]">
-              Join Live Auction
+            <span className="text-[16px]">🏏</span>
+            <h3 className="font-hero text-[22px] font-bold text-[#F5F7FA] tracking-wide uppercase">
+              Join Auction
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-[#8B93A0] hover:text-[#F5F3EE] rounded-[2px] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[#D9A94E]"
+            className="p-1 text-[#8B98A8] hover:text-[#F5F7FA] rounded-[2px]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -64,44 +64,35 @@ export function JoinRoomModal({ isOpen, onClose }: JoinRoomModalProps) {
 
         <form onSubmit={handleJoinByCode} className="space-y-4">
           <div>
-            <label className="text-[12px] font-medium text-[#8B93A0] block mb-1.5">
-              Enter room code or auction identifier
+            <label className="text-[12px] font-bold uppercase tracking-wider text-[#8B98A8] block mb-2">
+              Enter Auction Code
             </label>
             <input
               type="text"
-              placeholder="e.g. BPL-7X92 or AUCTION-..."
+              placeholder="A B C 1 2 3"
               value={roomCodeInput}
-              onChange={(e) => setRoomCodeInput(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-[#0A0F16] border border-[#232C36] text-[#F5F3EE] rounded-[3px] font-mono text-[15px] uppercase tracking-wider focus:border-[#D9A94E] focus:ring-1 focus:ring-[#D9A94E] outline-hidden placeholder:normal-case placeholder:font-sans placeholder:text-[13px] placeholder:text-[#8B93A0]/60"
+              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+              className="w-full px-4 py-3 bg-[#070B12] border border-[#202B38] text-[#F5F7FA] rounded-[4px] font-mono text-[18px] uppercase tracking-widest text-center focus:border-[#E5AE3F] focus:outline-none placeholder:text-[#8B98A8]/40"
               autoFocus
             />
-            <p className="text-[11px] text-[#8B93A0] mt-1.5">
-              Ask your auctioneer or room host for their short room code or invite link.
+            <p className="text-[12px] text-[#8B98A8] mt-2.5 leading-relaxed text-center">
+              Enter the code shared by your auctioneer to join the live auction.
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#232C36]">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-2 rounded-[3px] bg-[#0A0F16] border border-[#232C36] text-[#F5F3EE] text-[13px] hover:border-[#8B93A0]"
-            >
-              Cancel
-            </button>
+          <div className="pt-2">
             <button
               type="submit"
               disabled={joinLoading || !roomCodeInput.trim()}
-              className="px-4 py-2 rounded-[3px] bg-[#D9A94E] text-[#0A0F16] font-bold text-[13px] hover:bg-[#B9862E] disabled:opacity-50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(217,169,78,0.2)]"
+              className="w-full py-3 rounded-[4px] bg-[#E5AE3F] text-[#070B12] font-bold text-[14px] hover:bg-[#F4C65E] disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(229,174,63,0.2)]"
             >
               {joinLoading ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Locating room...</span>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Connecting to room...</span>
                 </>
               ) : (
-                <>
-                  <span>Join Auction</span>
-                </>
+                <span>Join Auction</span>
               )}
             </button>
           </div>
